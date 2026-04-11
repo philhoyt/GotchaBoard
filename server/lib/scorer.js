@@ -1,25 +1,77 @@
 'use strict';
 
 const Anthropic = require('@anthropic-ai/sdk');
+const https = require('https');
+const http  = require('http');
 const path = require('path');
 const fs = require('fs');
 const { IMAGES_DIR } = require('../db');
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
+// ── fetchImageAsBase64 ────────────────────────────────────────────
+// Downloads an image URL and returns { data: base64string, mediaType }
+function fetchImageAsBase64(rawUrl, timeout = 10000) {
+  return new Promise((resolve, reject) => {
+    let url;
+    try { url = new URL(rawUrl); } catch (e) { return reject(e); }
+
+    const lib = url.protocol === 'https:' ? https : http;
+    const req = lib.get(rawUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; GotchaBoard/1.0)',
+        'Accept': 'image/*',
+      },
+      timeout,
+    }, res => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        return fetchImageAsBase64(res.headers.location, timeout).then(resolve).catch(reject);
+      }
+      if (res.statusCode !== 200) return reject(new Error(`HTTP ${res.statusCode}`));
+
+      const contentType = res.headers['content-type'] || 'image/jpeg';
+      const mediaType = contentType.split(';')[0].trim();
+      // Only accept image types Claude supports
+      const supported = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+      if (!supported.includes(mediaType)) return reject(new Error(`Unsupported media type: ${mediaType}`));
+
+      const MAX_BYTES = 4 * 1024 * 1024; // 4MB hard cap (Claude limit is 5MB)
+      let total = 0;
+      const chunks = [];
+      res.on('data', c => {
+        total += c.length;
+        if (total > MAX_BYTES) {
+          req.destroy();
+          return reject(new Error('Image too large'));
+        }
+        chunks.push(c);
+      });
+      res.on('end', () => resolve({
+        data: Buffer.concat(chunks).toString('base64'),
+        mediaType,
+      }));
+    });
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')); });
+  });
+}
+
 // ── scoreCandidate ─────────────────────────────────────────────────
 // Scores a single candidate image URL against the taste profile.
 // Returns { score: number (0-10), reason: string }
 async function scoreCandidate(imageUrl, profileText) {
+  // Fetch the image ourselves so CDN restrictions don't block Claude
+  const { data, mediaType } = await fetchImageAsBase64(imageUrl);
+
   const response = await client.messages.create({
-    model: 'claude-opus-4-6',
+    model: 'claude-haiku-4-5-20251001',
     max_tokens: 150,
     messages: [{
       role: 'user',
       content: [
         {
           type: 'image',
-          source: { type: 'url', url: imageUrl },
+          source: { type: 'base64', media_type: mediaType, data },
         },
         {
           type: 'text',

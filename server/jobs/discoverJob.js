@@ -18,8 +18,15 @@ async function runCandidateScorer() {
   }
 
   const threshold = parseFloat(process.env.DISCOVER_SCORE_THRESHOLD || '6');
+  // Auto-show RSS candidates — user chose those sources, trust them
+  db.prepare(`
+    UPDATE discover_candidates SET status = 'shown'
+    WHERE status = 'pending' AND source_type = 'rss'
+  `).run();
+
+  // Only score crawl/link_hop candidates against the taste profile
   const batch = db.prepare(
-    "SELECT * FROM discover_candidates WHERE status = 'pending' AND score IS NULL LIMIT 50"
+    "SELECT * FROM discover_candidates WHERE status = 'pending' AND score IS NULL AND source_type != 'rss' LIMIT 40"
   ).all();
 
   if (batch.length === 0) return;
@@ -28,19 +35,44 @@ async function runCandidateScorer() {
   let shown = 0, dropped = 0;
 
   for (const candidate of batch) {
-    try {
-      const { score, reason } = await scoreCandidate(candidate.image_url, profile.profile_text);
-      if (score >= threshold) {
-        db.prepare(
-          "UPDATE discover_candidates SET score = ?, score_reason = ?, status = 'shown' WHERE id = ?"
-        ).run(score, reason, candidate.id);
-        shown++;
-      } else {
-        db.prepare('DELETE FROM discover_candidates WHERE id = ?').run(candidate.id);
-        dropped++;
+    await new Promise(r => setTimeout(r, 2500)); // ~24 req/min, safe for token rate limit
+    let scored = false;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const { score, reason } = await scoreCandidate(candidate.image_url, profile.profile_text);
+        if (score >= threshold) {
+          db.prepare(
+            "UPDATE discover_candidates SET score = ?, score_reason = ?, status = 'shown' WHERE id = ?"
+          ).run(score, reason, candidate.id);
+          shown++;
+        } else {
+          db.prepare('DELETE FROM discover_candidates WHERE id = ?').run(candidate.id);
+          dropped++;
+        }
+        scored = true;
+        break;
+      } catch (err) {
+        const msg = err.message || '';
+        if (msg.includes('429') || msg.includes('rate_limit')) {
+          // Rate limited — wait 60s and retry once
+          console.log(`[scorer] Rate limited, waiting 60s before retry...`);
+          await new Promise(r => setTimeout(r, 60000));
+          continue;
+        }
+        // Permanent failures — delete so they don't clog future runs
+        const isPermanent = msg.includes('robots.txt') || msg.includes('Only HTTPS') ||
+          msg.includes('disallowed') || msg.includes('403') || msg.includes('404') ||
+          msg.includes('Unsupported media type') || msg.includes('HTTP 4') ||
+          msg.includes('Image too large') || msg.includes('image exceeds');
+        if (isPermanent) {
+          db.prepare('DELETE FROM discover_candidates WHERE id = ?').run(candidate.id);
+          dropped++;
+        } else {
+          console.error(`[scorer] Failed to score candidate ${candidate.id}:`, msg);
+        }
+        scored = true;
+        break;
       }
-    } catch (err) {
-      console.error(`[scorer] Failed to score candidate ${candidate.id}:`, err.message);
     }
   }
 

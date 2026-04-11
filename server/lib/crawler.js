@@ -33,11 +33,39 @@ function fetchText(rawUrl, timeout = 10000) {
   });
 }
 
+// ── extractOgImage ────────────────────────────────────────────────
+// Extracts og:image from a <meta> tag regardless of attribute order.
+function extractOgImage(html, baseUrl) {
+  const base = new URL(baseUrl);
+  // Match <meta> tags that have both property="og:image" and content="..."
+  // in either order, with any other attributes in between.
+  const metaRe = /<meta\s[^>]*>/gi;
+  let m;
+  while ((m = metaRe.exec(html)) !== null) {
+    const tag = m[0];
+    if (!/property=["']og:image["']/i.test(tag)) continue;
+    const contentMatch = tag.match(/content=["']([^"']+)["']/i);
+    if (contentMatch) {
+      try { return new URL(contentMatch[1], base).href; } catch (_) {}
+    }
+  }
+  return null;
+}
+
 // ── extractImages ─────────────────────────────────────────────────
 // Extracts image src URLs from raw HTML, resolved against baseUrl.
-function extractImages(html, baseUrl) {
-  const urls = new Set();
+// If ogOnly is true, returns only the og:image (best for article pages).
+function extractImages(html, baseUrl, { ogOnly = false } = {}) {
   const base = new URL(baseUrl);
+
+  const ogImage = extractOgImage(html, baseUrl);
+
+  if (ogOnly) {
+    return ogImage ? [ogImage] : [];
+  }
+
+  const urls = new Set();
+  if (ogImage) urls.add(ogImage);
 
   // <img src="..."> and <img data-src="...">
   const imgRe = /<img[^>]+(?:src|data-src)=["']([^"']+)["']/gi;
@@ -48,12 +76,6 @@ function extractImages(html, baseUrl) {
       const ext = u.pathname.split('.').pop()?.toLowerCase();
       if (IMAGE_EXTS.has('.' + ext)) urls.add(u.href);
     } catch (_) {}
-  }
-
-  // <meta property="og:image" content="...">
-  const ogRe = /property=["']og:image["'][^>]+content=["']([^"']+)["']/gi;
-  while ((m = ogRe.exec(html)) !== null) {
-    try { urls.add(new URL(m[1], base).href); } catch (_) {}
   }
 
   return [...urls];
@@ -88,6 +110,10 @@ function isAlreadyKnown(imageUrl) {
 
 // ── queueCandidate ────────────────────────────────────────────────
 function queueCandidate({ image_url, page_url, page_title, source_type, source_id = null, source_query = null }) {
+  // Upgrade http → https so Claude Vision API can fetch the image
+  if (image_url.startsWith('http://')) {
+    image_url = 'https://' + image_url.slice(7);
+  }
   if (isAlreadyKnown(image_url)) return false;
   try {
     db.prepare(`
@@ -103,11 +129,12 @@ function queueCandidate({ image_url, page_url, page_title, source_type, source_i
 
 // ── crawlPage ─────────────────────────────────────────────────────
 // Fetches a page, queues images as candidates, returns discovered links.
-async function crawlPage(pageUrl, sourceType, sourceId = null) {
+// ogOnly: when true, only extracts the og:image (best for article pages from RSS).
+async function crawlPage(pageUrl, sourceType, sourceId = null, { ogOnly = false } = {}) {
   let html;
   try { html = await fetchText(pageUrl); } catch (_) { return []; }
 
-  const images = extractImages(html, pageUrl);
+  const images = extractImages(html, pageUrl, { ogOnly });
   let queued = 0;
   for (const img of images) {
     if (queueCandidate({ image_url: img, page_url: pageUrl, source_type: sourceType, source_id: sourceId })) {
@@ -121,17 +148,24 @@ async function crawlPage(pageUrl, sourceType, sourceId = null) {
 
 // ── runSourceCrawler ──────────────────────────────────────────────
 // Re-crawls pages where saved images came from.
+// Skips known JS-rendered hosts that never yield images.
+const SKIP_HOSTS = new Set(['www.pinterest.com', 'pinterest.com', 'www.reddit.com', 'reddit.com']);
+
 async function runSourceCrawler() {
   const hopDepth    = parseInt(process.env.LINK_HOP_DEPTH || '1');
   const followExternal = (process.env.LINK_HOP_EXTERNAL || 'true') === 'true';
 
-  // Unique source pages from saved images (skip local uploads)
+  // Unique source pages from saved images (skip local uploads and known dead hosts)
   const sourcePages = db.prepare(`
     SELECT DISTINCT page_url FROM images
     WHERE page_url IS NOT NULL
       AND page_url NOT LIKE 'local://%'
     LIMIT 100
-  `).all().map(r => r.page_url);
+  `).all()
+    .map(r => r.page_url)
+    .filter(url => {
+      try { return !SKIP_HOSTS.has(new URL(url).hostname); } catch (_) { return false; }
+    });
 
   for (const pageUrl of sourcePages) {
     const links = await crawlPage(pageUrl, 'crawl');
@@ -213,9 +247,9 @@ async function crawlRssFeed(source) {
     queueCandidate({ image_url: m[1], page_url: source.url, source_type: 'rss', source_id: source.id });
   }
 
-  // Crawl item pages for images
+  // Crawl item pages — og:image only to get the full-size hero photo
   for (const link of itemLinks.slice(0, 20)) {
-    await crawlPage(link, 'rss', source.id);
+    await crawlPage(link, 'rss', source.id, { ogOnly: true });
   }
 }
 

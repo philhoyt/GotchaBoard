@@ -7,58 +7,24 @@ const { generateThumbnail, thumbFilenameFor } = require('../lib/thumbnail');
 const { upsertTags } = require('./tags');
 const { scoreCandidate, generateTasteProfile } = require('../lib/scorer');
 const { runDiscoverCycle } = require('../lib/crawler');
+const { runCandidateScorer } = require('../jobs/discoverJob');
 const { v4: uuidv4 } = require('uuid');
 
 const router = express.Router();
 
 // ── GET /api/discover ──────────────────────────────────────────────
 // Returns candidates with status = 'shown', ordered by score desc.
-// Triggers scoring of any 'pending' candidates first.
-router.get('/', async (req, res) => {
+// Scoring of pending candidates happens in the background via cron jobs
+// or when a /run cycle is triggered — not on this request.
+router.get('/', (req, res) => {
   try {
-    // Score any pending candidates before returning the feed
-    const pending = db.prepare(
-      "SELECT * FROM discover_candidates WHERE status = 'pending' AND score IS NULL LIMIT 20"
-    ).all();
-
-    if (pending.length > 0) {
-      const profile = db.prepare(
-        'SELECT * FROM taste_profile ORDER BY id DESC LIMIT 1'
-      ).get();
-
-      if (profile) {
-        for (const candidate of pending) {
-          try {
-            const { score, reason } = await scoreCandidate(candidate.image_url, profile.profile_text);
-            const threshold = parseFloat(process.env.DISCOVER_SCORE_THRESHOLD || '6');
-            if (score >= threshold) {
-              db.prepare(
-                "UPDATE discover_candidates SET score = ?, score_reason = ?, status = 'shown' WHERE id = ?"
-              ).run(score, reason, candidate.id);
-            } else {
-              db.prepare(
-                "DELETE FROM discover_candidates WHERE id = ?"
-              ).run(candidate.id);
-            }
-          } catch (_) {
-            // Skip candidates that fail scoring
-          }
-        }
-      } else {
-        // No taste profile yet — surface all pending as shown with null scores
-        db.prepare(
-          "UPDATE discover_candidates SET status = 'shown' WHERE status = 'pending'"
-        ).run();
-      }
-    }
-
     const limit  = Math.min(parseInt(req.query.limit  || '50'), 200);
     const offset = parseInt(req.query.offset || '0');
 
     const candidates = db.prepare(`
       SELECT * FROM discover_candidates
       WHERE status = 'shown'
-      ORDER BY score DESC NULLS LAST, discovered_at DESC
+      ORDER BY discovered_at DESC
       LIMIT ? OFFSET ?
     `).all(limit, offset);
 
@@ -66,7 +32,11 @@ router.get('/', async (req, res) => {
       "SELECT COUNT(*) as n FROM discover_candidates WHERE status = 'shown'"
     ).get().n;
 
-    res.json({ candidates, total, limit, offset });
+    const pending = db.prepare(
+      "SELECT COUNT(*) as n FROM discover_candidates WHERE status = 'pending'"
+    ).get().n;
+
+    res.json({ candidates, total, pending, limit, offset });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Internal server error' });
@@ -259,7 +229,9 @@ router.post('/run', async (req, res) => {
   try {
     // Respond immediately; run in background
     res.json({ message: 'Discover cycle started' });
-    runDiscoverCycle().catch(err => console.error('[discover] cycle error:', err));
+    runDiscoverCycle()
+      .then(() => runCandidateScorer())
+      .catch(err => console.error('[discover] cycle error:', err));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Internal server error' });

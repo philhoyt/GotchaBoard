@@ -8,7 +8,7 @@ function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-function toast(msg, duration = 2800) {
+function toast(msg, duration = 3500) {
   const el = document.createElement('div');
   el.className = 'toast';
   el.textContent = msg;
@@ -93,7 +93,7 @@ function buildCard(candidate) {
 async function loadFeed() {
   showState('loading');
   try {
-    const { candidates } = await apiFetch('/discover');
+    const { candidates } = await apiFetch('/discover?limit=200');
     const grid = document.getElementById('discover-grid');
     grid.innerHTML = '';
 
@@ -267,10 +267,12 @@ function renderProfileInSettings(profile) {
 }
 
 async function refreshProfile(btn) {
-  const orig = btn.textContent;
+  const orig  = btn.textContent;
+  const errEl = document.getElementById('profile-error');
   btn.disabled   = true;
   btn.textContent = 'Generating…';
   document.getElementById('profile-loading').style.display = '';
+  if (errEl) errEl.textContent = '';
 
   try {
     const profile = await apiFetch('/discover/profile/refresh', { method: 'POST' });
@@ -280,7 +282,8 @@ async function refreshProfile(btn) {
     renderProfileInSettings(profile);
     toast('Taste profile updated');
   } catch (err) {
-    toast(`Failed: ${err.message}`);
+    if (errEl) errEl.textContent = err.message;
+    toast(`Failed: ${err.message}`, 8000);
   } finally {
     btn.disabled   = false;
     btn.textContent = orig;
