@@ -78,10 +78,76 @@ class BulkActionBar {
     // Remove any existing prompt
     document.getElementById('bulk-tag-prompt')?.remove();
 
+    const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+    const makePill = (name, onRemove) => {
+      const t     = (typeof state !== 'undefined' && state.tags)
+        ? state.tags.find(t => t.name === name) : null;
+      const color = t?.color || (typeof getTagColor === 'function' ? getTagColor(name) : '');
+      const pill  = document.createElement('span');
+      pill.className   = 'detail-tag-pill';
+      pill.dataset.tag = name;
+      if (color) pill.style.background = color;
+      pill.innerHTML = `${esc(name)}<button class="detail-tag-remove" title="Remove">&times;</button>`;
+      pill.querySelector('.detail-tag-remove').addEventListener('click', () => {
+        pill.remove();
+        if (onRemove) onRemove(name);
+      });
+      return pill;
+    };
+
+    // ── remove_tags: pre-populate with union of selected images' tags ──
+    if (action === 'remove_tags') {
+      const selectedImages = (typeof state !== 'undefined' && state.images)
+        ? state.images.filter(img => ids.includes(img.id))
+        : [];
+      const unionTags = [...new Set(selectedImages.flatMap(img => img.tags || []))].sort();
+
+      const prompt = document.createElement('div');
+      prompt.id = 'bulk-tag-prompt';
+      prompt.innerHTML = `
+        <div id="bulk-tag-backdrop"></div>
+        <div id="bulk-tag-dialog">
+          <p>Click &times; to remove tags from ${ids.length} Got${ids.length !== 1 ? 's' : ''}.</p>
+          <div class="detail-tags-wrap" id="bulk-tags-wrap"></div>
+          <div id="bulk-tag-dialog-actions">
+            <button id="bulk-tag-cancel">Cancel</button>
+            <button id="bulk-tag-confirm">Apply</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(prompt);
+
+      const removedTags = new Set();
+      const wrap = document.getElementById('bulk-tags-wrap');
+
+      if (unionTags.length === 0) {
+        wrap.innerHTML = '<span style="font-size:12px;color:var(--ink-dim)">No tags on selected Gots.</span>';
+      } else {
+        for (const name of unionTags) {
+          wrap.appendChild(makePill(name, removed => removedTags.add(removed)));
+        }
+      }
+
+      const apply = () => {
+        if (removedTags.size === 0) return;
+        prompt.remove();
+        this.onAction({ action, ids, tags: [...removedTags] });
+      };
+
+      document.getElementById('bulk-tag-confirm').addEventListener('click', apply);
+      document.getElementById('bulk-tag-cancel').addEventListener('click', () => prompt.remove());
+      document.getElementById('bulk-tag-backdrop').addEventListener('click', () => prompt.remove());
+      document.addEventListener('keydown', function onKey(e) {
+        if (e.key === 'Escape') { prompt.remove(); document.removeEventListener('keydown', onKey); }
+      });
+      return;
+    }
+
+    // ── add_tags / move_to_tags: empty pill area + text input ──────────
     const labels = {
       add_tags:     'Add tags to selected Gots:',
-      remove_tags:  'Remove tags from selected Gots:',
-      move_to_tags: 'Replace all tags on selected Gots with:',
+      move_to_tags: `Replace all tags on ${ids.length} Got${ids.length !== 1 ? 's' : ''} with:`,
     };
 
     const prompt = document.createElement('div');
@@ -102,43 +168,27 @@ class BulkActionBar {
     document.body.appendChild(prompt);
     document.getElementById('bulk-tag-input').focus();
 
-    const getBulkTags = () => {
-      return [...document.querySelectorAll('#bulk-tags-wrap .detail-tag-pill')]
-        .map(el => el.dataset.tag);
-    };
+    const getPills = () =>
+      [...document.querySelectorAll('#bulk-tags-wrap .detail-tag-pill')].map(el => el.dataset.tag);
 
-    const addBulkPill = (name) => {
+    const addPill = (name) => {
       const wrap  = document.getElementById('bulk-tags-wrap');
       const input = document.getElementById('bulk-tag-input');
-      if (getBulkTags().includes(name)) return; // no dupes
-
-      const t     = (typeof state !== 'undefined' && state.tags)
-        ? state.tags.find(t => t.name === name) : null;
-      const color = t?.color || (typeof getTagColor === 'function' ? getTagColor(name) : '');
-
-      const pill = document.createElement('span');
-      pill.className = 'detail-tag-pill';
-      pill.dataset.tag = name;
-      if (color) pill.style.background = color;
-
-      const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-      pill.innerHTML = `${esc(name)}<button class="detail-tag-remove" title="Remove">&times;</button>`;
-      pill.querySelector('.detail-tag-remove').addEventListener('click', () => pill.remove());
-
-      wrap.insertBefore(pill, input);
+      if (getPills().includes(name)) return;
+      wrap.insertBefore(makePill(name), input);
     };
 
     document.getElementById('bulk-tag-input').addEventListener('keydown', e => {
       if (e.key === 'Enter') {
         e.preventDefault();
         const val = e.target.value.trim();
-        if (val) { addBulkPill(val); e.target.value = ''; }
+        if (val) { addPill(val); e.target.value = ''; }
       }
       if (e.key === 'Escape') prompt.remove();
     });
 
     const apply = () => {
-      const tags = getBulkTags();
+      const tags = getPills();
       if (tags.length === 0) return;
       if (action === 'move_to_tags') {
         if (!confirm(`This will replace all tags on ${ids.length} Gots. Continue?`)) return;
