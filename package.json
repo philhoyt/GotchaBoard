@@ -1,0 +1,22 @@
+{
+  "name": "gotchaboard",
+  "version": "1.0.0",
+  "description": "Self-hosted local image bookmarking tool",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "import:pinterest": "node import/pinterest.js"
+  },
+  "dependencies": {
+    "adm-zip": "^0.5.10",
+    "better-sqlite3": "^9.4.3",
+    "cli-progress": "^3.12.0",
+    "cors": "^2.8.5",
+    "csv-parse": "^5.5.0",
+    "express": "^4.18.3",
+    "puppeteer": "^22.0.0",
+    "sharp": "^0.33.3",
+    "uuid": "^9.0.1"
+  }
+}

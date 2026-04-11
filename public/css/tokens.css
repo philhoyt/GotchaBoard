@@ -1,0 +1,67 @@
+/* ── Brand Pastels (mode-independent) ────────────────────────── */
+:root {
+  --color-coral:    #FF8080;
+  --color-mint:     #7FEDC8;
+  --color-lemon:    #FFE566;
+  --color-lavender: #C4AAFF;
+  --color-sky:      #80CCFF;
+  --color-peach:    #FFB880;
+
+  /* Tag palette (deterministic assignment via tagColor.js) */
+  --tag-1: #FFB880;
+  --tag-2: #7FEDC8;
+  --tag-3: #C4AAFF;
+  --tag-4: #80CCFF;
+  --tag-5: #FFE566;
+  --tag-6: #FF8080;
+
+  /* Spacing */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+
+  /* Layout */
+  --sidebar-width: 220px;
+  --detail-width:  420px;
+  --bar-height:    56px;
+}
+
+/* ── Light Mode (default) ─────────────────────────────────────── */
+:root,
+[data-theme="light"] {
+  --bg:          #FFFFFF;
+  --surface:     #FAFAFA;
+  --surface2:    #F2F2F2;
+  --ink:         #0D0D0D;
+  --ink-dim:     #888888;
+  --ink-dimmer:  #BBBBBB;
+
+  --sh:          3px 3px 0 #0D0D0D;
+  --sh-lg:       5px 5px 0 #0D0D0D;
+  --sh-sm:       2px 2px 0 #0D0D0D;
+  --sh-color:    #0D0D0D;
+
+  --bd:          2px solid #0D0D0D;
+  --bd-sm:       1.5px solid #0D0D0D;
+}
+
+/* ── Dark Mode ────────────────────────────────────────────────── */
+[data-theme="dark"] {
+  --bg:          #111111;
+  --surface:     #1C1C1C;
+  --surface2:    #161616;
+  --ink:         #EDEDED;
+  --ink-dim:     #666666;
+  --ink-dimmer:  #444444;
+
+  --sh:          3px 3px 0 #EDEDED;
+  --sh-lg:       5px 5px 0 #EDEDED;
+  --sh-sm:       2px 2px 0 #EDEDED;
+  --sh-color:    #EDEDED;
+
+  --bd:          2px solid #EDEDED;
+  --bd-sm:       1.5px solid #EDEDED;
+}
