@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -14,6 +15,7 @@ const imagesRouter           = require('./routes/images');
 const tagsRouter             = require('./routes/tags');
 const bulkRouter             = require('./routes/bulk');
 const smartCollectionsRouter = require('./routes/smartCollections');
+const discoverRouter         = require('./routes/discover');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -39,7 +41,10 @@ app.use('/api/images',            imagesRouter);
 app.use('/api/tags',              tagsRouter);
 app.use('/api/gots/bulk',         bulkRouter);
 app.use('/api/smart-collections', smartCollectionsRouter);
+app.use('/api/discover',          discoverRouter);
 
 app.listen(PORT, () => {
   console.log(`GotchaBoard running at http://localhost:${PORT}`);
+  const { startJobs } = require('./jobs/discoverJob');
+  startJobs();
 });

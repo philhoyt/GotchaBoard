@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Discover — GotchaBoard</title>
+
+  <!-- Fonts first — prevents FOUT -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/syne@5/700.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/dm-sans@5/400.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/dm-sans@5/500.css">
+
+  <!-- Theme detection before CSS — prevents flash on dark mode -->
+  <script>(function(){var s=localStorage.getItem('gotcha-theme'),p=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',s||p);})();</script>
+
+  <!-- Design system -->
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/typography.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/animations.css">
+  <!-- Discover layout -->
+  <link rel="stylesheet" href="css/discover.css">
+</head>
+<body>
+  <div id="discover-app">
+
+    <!-- Header -->
+    <header id="discover-header">
+      <a href="index.html" id="back-link" title="Back to board">← GotchaBoard</a>
+      <h1 class="logo"><span style="color:#FFE566">DIS</span><span style="color:#FF8080">COVER</span></h1>
+      <div id="discover-header-actions">
+        <div class="grid-scale-group" aria-label="Grid density">
+          <button class="grid-scale-btn" data-cols="2" title="2 columns">XL</button>
+          <button class="grid-scale-btn" data-cols="3" title="3 columns">L</button>
+          <button class="grid-scale-btn active" data-cols="4" title="4 columns">M</button>
+          <button class="grid-scale-btn" data-cols="5" title="5 columns">S</button>
+          <button class="grid-scale-btn" data-cols="6" title="6 columns">XS</button>
+          <button class="grid-scale-btn" data-cols="8" title="8 columns">XXS</button>
+        </div>
+        <button id="run-discover-btn" class="primary-btn">Run Discovery</button>
+        <button id="settings-btn" class="ghost-btn">⚙ Settings</button>
+        <button id="theme-toggle" class="ghost-btn" title="Toggle theme" onclick="toggleTheme()">☾</button>
+      </div>
+    </header>
+
+    <!-- Taste profile banner (shown when profile exists) -->
+    <div id="profile-banner" style="display:none">
+      <div id="profile-banner-inner">
+        <span id="profile-banner-text"></span>
+        <button id="refresh-profile-btn" class="ghost-btn">↺ Refresh taste profile</button>
+      </div>
+    </div>
+
+    <!-- Feed -->
+    <div id="discover-scroll">
+      <div id="discover-grid"></div>
+    </div>
+
+    <!-- Empty / loading states -->
+    <div id="discover-empty" style="display:none">
+      <div id="discover-empty-inner">
+        <p class="discover-empty-title">No discoveries yet.</p>
+        <p class="discover-empty-hint">Run a discovery cycle to find images based on your taste, or add RSS sources in Settings.</p>
+        <div id="discover-empty-actions">
+          <button id="empty-run-btn" class="primary-btn">Run Discovery</button>
+          <button id="empty-profile-btn" class="ghost-btn">Generate taste profile first</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="discover-loading" style="display:none">
+      <p>Loading discoveries…</p>
+    </div>
+
+  </div>
+
+  <!-- Settings panel -->
+  <div id="settings-overlay" style="display:none"></div>
+  <aside id="settings-panel" style="display:none">
+    <div id="settings-header">
+      <h2>Discover Settings</h2>
+      <button id="settings-close" class="ghost-btn">&times;</button>
+    </div>
+    <div id="settings-content">
+
+      <!-- Taste profile section -->
+      <section class="settings-section">
+        <h3>Taste Profile</h3>
+        <div id="taste-profile-area">
+          <p class="settings-hint">No profile generated yet. Save at least 3 Gots and click below.</p>
+        </div>
+        <button id="settings-refresh-profile-btn" class="primary-btn">Generate / Refresh Profile</button>
+        <div id="profile-loading" style="display:none" class="settings-hint">Analyzing your Gots with Claude… this may take 30–60s.</div>
+      </section>
+
+      <!-- Sources section -->
+      <section class="settings-section">
+        <h3>RSS &amp; Scrape Sources</h3>
+        <div id="sources-list"></div>
+        <div id="add-source-form">
+          <div class="settings-field">
+            <label class="detail-label">Label</label>
+            <input type="text" id="source-label" placeholder="e.g. It's Nice That" autocomplete="off">
+          </div>
+          <div class="settings-field">
+            <label class="detail-label">URL</label>
+            <input type="url" id="source-url" placeholder="https://..." autocomplete="off">
+          </div>
+          <div class="settings-field">
+            <label class="detail-label">Type</label>
+            <select id="source-type">
+              <option value="rss">RSS Feed</option>
+              <option value="scrape">Scrape Page</option>
+            </select>
+          </div>
+          <div class="settings-field">
+            <label class="detail-label">Fetch every (hours)</label>
+            <input type="number" id="source-interval" value="24" min="1" max="168">
+          </div>
+          <button id="add-source-btn" class="primary-btn">Add Source</button>
+          <div id="add-source-error" class="settings-error"></div>
+        </div>
+      </section>
+
+      <!-- Stats section -->
+      <section class="settings-section">
+        <h3>Discovery Stats</h3>
+        <div id="discover-stats"></div>
+      </section>
+
+    </div>
+  </aside>
+
+  <!-- Detail panel (for saving a Got from Discover) -->
+  <div id="detail-overlay"></div>
+  <aside id="detail-panel">
+    <div id="detail-header">
+      <button id="detail-close" aria-label="Close">&times;</button>
+    </div>
+    <div id="detail-content"></div>
+  </aside>
+
+  <div id="toast-container"></div>
+
+  <script src="js/theme.js"></script>
+  <script src="js/tagColor.js"></script>
+  <script src="js/discover.js"></script>
+</body>
+</html>

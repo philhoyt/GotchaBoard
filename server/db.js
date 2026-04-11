@@ -54,6 +54,61 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_image_tags_image_id ON image_tags(image_id);
   CREATE INDEX IF NOT EXISTS idx_image_tags_tag_id ON image_tags(tag_id);
+
+  CREATE TABLE IF NOT EXISTS discover_sources (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    url TEXT NOT NULL,
+    label TEXT NOT NULL,
+    type TEXT NOT NULL CHECK(type IN ('rss', 'scrape')),
+    fetch_interval_hours INTEGER NOT NULL DEFAULT 24,
+    last_fetched_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS discover_candidates (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    image_url TEXT NOT NULL UNIQUE,
+    page_url TEXT,
+    page_title TEXT,
+    source_type TEXT NOT NULL CHECK(source_type IN ('crawl','rss','taste_search','visual_sim','link_hop')),
+    source_id INTEGER REFERENCES discover_sources(id) ON DELETE SET NULL,
+    source_query TEXT,
+    source_image_id TEXT REFERENCES images(id) ON DELETE SET NULL,
+    score REAL,
+    score_reason TEXT,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','shown','saved','dismissed')),
+    discovered_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS taste_profile (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    generated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    profile_text TEXT NOT NULL,
+    sample_size INTEGER NOT NULL,
+    search_queries TEXT NOT NULL DEFAULT '[]'
+  );
+
+  CREATE TABLE IF NOT EXISTS discover_search_queries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    query_text TEXT NOT NULL UNIQUE,
+    generated_from_profile_id INTEGER REFERENCES taste_profile(id) ON DELETE SET NULL,
+    results_fetched INTEGER NOT NULL DEFAULT 0,
+    candidates_queued INTEGER NOT NULL DEFAULT 0,
+    run_at TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS discover_link_hops (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    url TEXT NOT NULL UNIQUE,
+    found_from_url TEXT,
+    images_found INTEGER NOT NULL DEFAULT 0,
+    candidates_queued INTEGER NOT NULL DEFAULT 0,
+    crawled_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_candidates_status   ON discover_candidates(status);
+  CREATE INDEX IF NOT EXISTS idx_candidates_score    ON discover_candidates(score DESC);
+  CREATE INDEX IF NOT EXISTS idx_candidates_image_url ON discover_candidates(image_url);
 `);
 
 // ── Migrations ─────────────────────────────────────────────────────

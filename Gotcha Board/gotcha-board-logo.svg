@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <style>
+      .outline { fill: none; stroke: #1a1a1a; stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }
+    </style>
+  </defs>
+
+  <!-- Shadow of main board -->
+  <rect x="78" y="78" width="380" height="380" rx="32" ry="32" fill="#1a1a1a" />
+
+  <!-- Main board background -->
+  <rect x="66" y="66" width="380" height="380" rx="32" ry="32" fill="#FFF5E6" stroke="#1a1a1a" stroke-width="6" />
+
+  <!-- Card 1 - top left (pastel pink) -->
+  <g>
+    <rect x="100" y="110" width="130" height="100" rx="10" ry="10" fill="#1a1a1a" transform="translate(6,6)" />
+    <rect x="100" y="110" width="130" height="100" rx="10" ry="10" fill="#FFB5C2" stroke="#1a1a1a" stroke-width="4" />
+    <!-- Lines on card -->
+    <line x1="118" y1="140" x2="212" y2="140" stroke="#1a1a1a" stroke-width="3" stroke-linecap="round" />
+    <line x1="118" y1="158" x2="195" y2="158" stroke="#1a1a1a" stroke-width="3" stroke-linecap="round" />
+    <line x1="118" y1="176" x2="180" y2="176" stroke="#1a1a1a" stroke-width="3" stroke-linecap="round" />
+  </g>
+
+  <!-- Card 2 - top right (pastel lavender) -->
+  <g>
+    <rect x="282" y="100" width="130" height="110" rx="10" ry="10" fill="#1a1a1a" transform="translate(6,6)" />
+    <rect x="282" y="100" width="130" height="110" rx="10" ry="10" fill="#C5B4E3" stroke="#1a1a1a" stroke-width="4" />
+    <!-- Image placeholder on card -->
+    <rect x="300" y="118" width="94" height="54" rx="6" ry="6" fill="#A78BCA" stroke="#1a1a1a" stroke-width="3" />
+    <line x1="300" y1="190" x2="394" y2="190" stroke="#1a1a1a" stroke-width="3" stroke-linecap="round" />
+  </g>
+
+  <!-- Card 3 - bottom left (pastel mint) -->
+  <g>
+    <rect x="92" y="260" width="140" height="120" rx="10" ry="10" fill="#1a1a1a" transform="translate(6,6)" />
+    <rect x="92" y="260" width="140" height="120" rx="10" ry="10" fill="#B8E8D0" stroke="#1a1a1a" stroke-width="4" />
+    <!-- Image placeholder -->
+    <rect x="110" y="278" width="104" height="64" rx="6" ry="6" fill="#8DD4B0" stroke="#1a1a1a" stroke-width="3" />
+    <line x1="110" y1="358" x2="214" y2="358" stroke="#1a1a1a" stroke-width="3" stroke-linecap="round" />
+  </g>
+
+  <!-- Card 4 - bottom right (pastel yellow) -->
+  <g>
+    <rect x="276" y="270" width="136" height="100" rx="10" ry="10" fill="#1a1a1a" transform="translate(6,6)" />
+    <rect x="276" y="270" width="136" height="100" rx="10" ry="10" fill="#FFE5A0" stroke="#1a1a1a" stroke-width="4" />
+    <!-- Lines on card -->
+    <line x1="294" y1="298" x2="394" y2="298" stroke="#1a1a1a" stroke-width="3" stroke-linecap="round" />
+    <line x1="294" y1="316" x2="375" y2="316" stroke="#1a1a1a" stroke-width="3" stroke-linecap="round" />
+    <line x1="294" y1="334" x2="358" y2="334" stroke="#1a1a1a" stroke-width="3" stroke-linecap="round" />
+    <line x1="294" y1="352" x2="340" y2="352" stroke="#1a1a1a" stroke-width="3" stroke-linecap="round" />
+  </g>
+
+  <!-- Pin 1 - on pink card -->
+  <circle cx="165" cy="110" r="12" fill="#FF6B8A" stroke="#1a1a1a" stroke-width="3" />
+  <circle cx="165" cy="110" r="4" fill="#1a1a1a" />
+
+  <!-- Pin 2 - on lavender card -->
+  <circle cx="347" cy="100" r="12" fill="#9B7FD4" stroke="#1a1a1a" stroke-width="3" />
+  <circle cx="347" cy="100" r="4" fill="#1a1a1a" />
+
+  <!-- Pin 3 - on mint card -->
+  <circle cx="162" cy="260" r="12" fill="#5DC49A" stroke="#1a1a1a" stroke-width="3" />
+  <circle cx="162" cy="260" r="4" fill="#1a1a1a" />
+
+  <!-- Pin 4 - on yellow card -->
+  <circle cx="344" cy="270" r="12" fill="#FFCC44" stroke="#1a1a1a" stroke-width="3" />
+  <circle cx="344" cy="270" r="4" fill="#1a1a1a" />
+</svg>
