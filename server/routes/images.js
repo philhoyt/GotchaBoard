@@ -24,6 +24,58 @@ const BASE_QUERY = `
   LEFT JOIN tags ON tags.id = image_tags.tag_id
 `;
 
+// ── POST /api/images/upload ────────────────────────────────────────
+// Mounted directly in index.js with multer middleware
+async function handleUpload(req, res) {
+  const tempPath = req.file?.path;
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+
+    const mime = req.file.mimetype || '';
+    if (!mime.startsWith('image/')) {
+      fs.unlinkSync(tempPath);
+      return res.status(400).json({ error: 'File must be an image' });
+    }
+
+    const extMap = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/gif': '.gif', 'image/webp': '.webp', 'image/avif': '.avif' };
+    const ext = extMap[mime] || path.extname(req.file.originalname || '').toLowerCase() || '.jpg';
+    const filename = `${uuidv4()}${ext}`;
+    const destPath = path.join(IMAGES_DIR, filename);
+
+    fs.renameSync(tempPath, destPath);
+
+    const thumbFilename = thumbFilenameFor(filename);
+    const thumbnail = await generateThumbnail(destPath, thumbFilename);
+
+    const imageId = uuidv4();
+    const rawTags = req.body.tags ? JSON.parse(req.body.tags) : [];
+    const tagIds = Array.isArray(rawTags) && rawTags.length > 0 ? upsertTags(rawTags) : [];
+    const notes = req.body.notes || null;
+    const page_title = req.body.page_title || req.file.originalname || null;
+    const page_url = req.body.page_url || null;
+    const source_url = 'local://upload';
+
+    db.transaction(() => {
+      db.prepare(`
+        INSERT INTO images (id, filename, thumbnail, source_url, page_title, page_url, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).run(imageId, filename, thumbnail, source_url, page_title, page_url, notes);
+      for (const tagId of tagIds) {
+        db.prepare('INSERT OR IGNORE INTO image_tags (image_id, tag_id) VALUES (?, ?)').run(imageId, tagId);
+      }
+    })();
+
+    const saved = db.prepare(`${BASE_QUERY} WHERE images.id = ? GROUP BY images.id`).get(imageId);
+    res.status(201).json(rowToImage(saved));
+  } catch (err) {
+    if (tempPath) try { fs.unlinkSync(tempPath); } catch (_) {}
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+router.handleUpload = handleUpload;
+
 // Build WHERE clauses for image filtering
 function buildImageFilter(query) {
   const where = [];

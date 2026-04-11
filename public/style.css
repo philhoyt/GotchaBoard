@@ -557,3 +557,114 @@ section {
 body.is-dragging * { cursor: grabbing !important; }
 body.is-dragging .image-card { pointer-events: none; }
 body.is-dragging [data-tag-id] { pointer-events: all !important; }
+
+/* ── Add Got modal ────────────────────────────────────────────── */
+#add-got-modal {
+  position:        fixed;
+  inset:           0;
+  z-index:         400;
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+}
+#add-got-backdrop {
+  position:   absolute;
+  inset:      0;
+  background: rgba(0,0,0,0.45);
+}
+#add-got-dialog {
+  position:   relative;
+  background: var(--bg);
+  border:     var(--bd);
+  box-shadow: var(--sh-lg);
+  padding:    24px;
+  width:      480px;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+#add-got-dialog h2 {
+  font-size:     15px;
+  margin-bottom: 16px;
+}
+.add-got-tabs {
+  display:       flex;
+  gap:           6px;
+  margin-bottom: 16px;
+}
+.add-got-tab {
+  padding:     6px 14px;
+  font-size:   12px;
+  font-weight: 600;
+  border:      var(--bd);
+  background:  var(--surface);
+  color:       var(--ink-dim);
+  cursor:      pointer;
+  border-radius: 0;
+  transition:  background 0.1s, color 0.1s;
+}
+.add-got-tab.active {
+  background: var(--color-lemon);
+  color:      #111111;
+}
+.add-got-mode { display: none; }
+.add-got-mode.active { display: block; }
+.add-got-field {
+  margin-bottom: 12px;
+}
+.add-got-field input[type="text"],
+.add-got-field input[type="url"] {
+  width:      100%;
+  padding:    7px 10px;
+  font-size:  13px;
+  border:     var(--bd);
+  background: var(--bg);
+  color:      var(--ink);
+  font-family: inherit;
+}
+.add-got-field input:focus {
+  outline:    none;
+  box-shadow: 2px 2px 0 var(--sh-color);
+}
+.add-got-dropzone {
+  border:      var(--bd);
+  border-style: dashed;
+  background:  var(--surface);
+  padding:     32px 16px;
+  text-align:  center;
+  font-size:   13px;
+  color:       var(--ink-dim);
+  cursor:      pointer;
+  transition:  background 0.1s;
+}
+.add-got-dropzone.dragover {
+  background:   var(--color-mint);
+  color:        #111111;
+  border-style: solid;
+}
+.add-got-dropzone img {
+  max-height:  120px;
+  max-width:   100%;
+  margin-top:  8px;
+  border:      var(--bd-sm);
+  box-shadow:  var(--sh-sm);
+  display:     block;
+  margin-left: auto;
+  margin-right: auto;
+}
+.add-got-divider {
+  border:        none;
+  border-top:    var(--bd-sm);
+  margin:        16px 0;
+}
+.add-got-actions {
+  display:    flex;
+  gap:        8px;
+  margin-top: 16px;
+}
+.add-got-error {
+  color:       var(--color-coral);
+  font-size:   12px;
+  font-weight: 500;
+  margin-top:  8px;
+  min-height:  1em;
+}
