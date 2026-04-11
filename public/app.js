@@ -581,6 +581,15 @@ const dragStack = new DragStack({
 // Sync card checkboxes when selection changes from bulk bar
 selection.addEventListener('change', () => syncSelectionUI());
 
+// ── Grid scale ─────────────────────────────────────────────────────
+function setGridCols(n) {
+  document.getElementById('image-grid').style.setProperty('--grid-cols', n);
+  document.querySelectorAll('.grid-scale-btn').forEach(btn => {
+    btn.classList.toggle('active', Number(btn.dataset.cols) === n);
+  });
+  localStorage.setItem('gotcha-grid-cols', n);
+}
+
 // ── Add Got modal ──────────────────────────────────────────────────
 function openAddGotModal() {
   const modal   = document.getElementById('add-got-modal');
@@ -848,6 +857,11 @@ function bindEventListeners() {
     if (name?.trim()) createCollection(name.trim());
   });
 
+  // Grid scale buttons
+  document.querySelectorAll('.grid-scale-btn').forEach(btn => {
+    btn.addEventListener('click', () => setGridCols(Number(btn.dataset.cols)));
+  });
+
   // Add Got button
   document.getElementById('add-got-btn').addEventListener('click', openAddGotModal);
 
@@ -870,6 +884,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   bindEventListeners();
+
+  const savedCols = localStorage.getItem('gotcha-grid-cols');
+  if (savedCols) setGridCols(Number(savedCols));
+
   loadAll().catch(() => {
     document.getElementById('image-grid').innerHTML = `
       <div style="padding:40px;text-align:center;color:#dc2626">
