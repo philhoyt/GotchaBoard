@@ -702,7 +702,17 @@ function bindDetailEvents(image) {
     try {
       await apiFetch(`/images/${image.id}`, { method: 'DELETE' });
       closeDetail();
-      await Promise.all([loadImages(), loadTags()]);
+      // Remove card in-place — no scroll reset
+      const card = document.querySelector(`.image-card[data-id="${image.id}"]`);
+      if (card && msnry) {
+        await sweep(card, 0).finished;
+        msnry.remove(card);
+        msnry.layout();
+      }
+      state.images = state.images.filter(i => i.id !== image.id);
+      state.totalImages = Math.max(0, state.totalImages - 1);
+      updateCounts();
+      await loadTags();
     } catch (err) { alert(`Failed to delete: ${err.message}`); }
   });
 }

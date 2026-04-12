@@ -491,7 +491,7 @@ section {
 
 #detail-content { padding: 16px; }
 .detail-image-wrap { background: var(--surface); border: var(--bd); margin-bottom: 16px; overflow: hidden; }
-.detail-image-wrap img { width: 100%; display: block; max-height: calc(100vh - var(--bar-height) - 32px); object-fit: contain; }
+.detail-image-wrap img { width: 100%; display: block; max-height: calc(100vh - var(--bar-height) - var(--titlebar-height) - 32px); object-fit: contain; }
 .detail-field { margin-bottom: 14px; }
 .detail-label {
   font-size:      11px;
