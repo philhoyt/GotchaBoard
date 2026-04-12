@@ -1,6 +1,60 @@
 # GotchaBoard
 
-A self-hosted desktop app for bookmarking and organizing images. Save anything from the web via a Chrome extension, browse your collection, tag and organize with smart collections, and discover new images matched to your taste using AI.
+A self-hosted desktop app for bookmarking and organizing images. Save anything from the web via a Chrome extension, browse your collection, and tag and organize with smart collections.
+
+---
+
+## Install
+
+Download the latest release for your platform from the [Releases page](../../releases).
+
+| Platform | File |
+|----------|------|
+| Mac (Apple Silicon) | `GotchaBoard-x.x.x-mac-arm64.dmg` |
+| Mac (Intel) | `GotchaBoard-x.x.x-mac-x64.dmg` |
+| Windows | `GotchaBoard-x.x.x-win-x64.exe` |
+| Linux | `GotchaBoard-x.x.x-linux-x86_64.AppImage` |
+
+### Mac — first launch
+
+GotchaBoard is not notarized (I'm not paying Apple $99/year for a free app). macOS will warn you on first launch:
+
+1. Open the `.dmg` and drag **GotchaBoard** to **Applications**
+2. **Right-click** (or Control-click) the app and choose **Open**
+3. Click **Open** in the security dialog
+4. After the first time, it opens normally
+
+If macOS says the app is "damaged and can't be opened", run this in Terminal:
+
+```bash
+xattr -cr /Applications/GotchaBoard.app
+```
+
+If right-click → Open doesn't work, go to **System Settings → Privacy & Security** and click **Open Anyway**.
+
+### Windows — first launch
+
+Windows SmartScreen may show a "Windows protected your PC" warning:
+
+1. Click **More info**
+2. Click **Run anyway**
+
+### Linux
+
+```bash
+chmod +x GotchaBoard-*.AppImage
+./GotchaBoard-*.AppImage
+```
+
+### Where is my data stored?
+
+All images, thumbnails, and the database are stored locally:
+
+- **Mac:** `~/Library/Application Support/GotchaBoard/storage/`
+- **Windows:** `%APPDATA%/GotchaBoard/storage/`
+- **Linux:** `~/.config/GotchaBoard/storage/`
+
+Nothing is sent to any server. Uninstalling the app does not delete your data.
 
 ---
 
@@ -8,18 +62,17 @@ A self-hosted desktop app for bookmarking and organizing images. Save anything f
 
 - **Desktop app** (Electron) — runs locally, no cloud, your images stay on your machine
 - **Chrome extension** — right-click any image on any page to save it instantly
-- **Discover feed** — pulls from RSS feeds and crawls linked pages, scores candidates against your taste profile using Claude Vision
-- **Tags & Smart Collections** — organize with freeform tags; smart collections auto-update based on tag rules
+- **Tags & Collections** — organize with freeform tags; collections filter by AND logic across tags
+- **Discover feed** — pulls from RSS feeds and crawls linked pages
 - **Pinterest import** — bulk import from a Pinterest data export
 
 ---
 
-## Requirements
+## Requirements (for development)
 
 - Node.js v22+
 - npm
 - Chrome (for the extension)
-- An Anthropic API key (for Discover / taste scoring)
 
 ---
 
@@ -64,7 +117,7 @@ LINK_HOP_EXTERNAL=false
 npm start
 ```
 
-This rebuilds native modules for Electron then launches the app. On first run this takes ~15 seconds. The window opens automatically.
+Builds the frontend and launches the app. The window opens automatically.
 
 ### Browser only (for CSS/JS development)
 
@@ -85,42 +138,37 @@ npm run dev
 ## Building a distributable
 
 ```bash
-npm run dist
+npm run dist        # current platform
+npm run dist:mac    # macOS (dmg + zip, x64 + arm64)
+npm run dist:win    # Windows (installer + portable)
+npm run dist:linux  # Linux (AppImage + deb)
 ```
 
-Outputs to `dist/`:
-- `GotchaBoard-1.0.0-arm64.dmg` — drag-to-Applications installer
-- `GotchaBoard-1.0.0-arm64-mac.zip` — raw `.app` bundle
+Outputs to `dist/` with predictable names like `GotchaBoard-1.0.0-mac-arm64.dmg`.
 
-### Opening unsigned builds on macOS
-
-Since the app isn't signed with an Apple Developer certificate, macOS will block it. After building, run:
+### Cutting a release
 
 ```bash
-xattr -cr dist/mac-arm64/GotchaBoard.app
+npm version 1.0.0   # bumps package.json, commits, and creates a v1.0.0 tag
+git push && git push --tags
 ```
 
-Then double-click the `.app` to open it. Re-run this command after each new build.
-
-If you install to `/Applications`, run:
-```bash
-xattr -cr /Applications/GotchaBoard.app
-```
+Pushing the tag triggers the GitHub Actions workflow, which builds all three platforms and creates a draft GitHub Release. Review the artifacts and click **Publish** when ready.
 
 ---
 
 ## Switching between Electron and browser mode
 
-The native SQLite module (`better-sqlite3`) must be compiled for whichever runtime is loading it. The npm scripts handle this automatically:
+The native SQLite module (`better-sqlite3`) must be compiled for whichever runtime is loading it:
 
 | Command | Compiles for |
 |---|---|
-| `npm start` | Electron |
-| `npm run dist` | Electron |
-| `npm run start:server` | System Node |
-| `npm run dev` | System Node |
+| `npm start` | Electron (via `postinstall`) |
+| `npm run dist` | Electron (electron-builder handles rebuild) |
+| `npm run start:server` | System Node (`npm rebuild`) |
+| `npm run dev` | System Node (`npm rebuild`) |
 
-Each command rebuilds the native module before running, so you can switch freely without manual steps.
+`npm install` automatically runs `electron-builder install-app-deps` (via `postinstall`), which compiles native modules for Electron. The server-mode scripts call `npm rebuild` to recompile for system Node when needed.
 
 ---
 

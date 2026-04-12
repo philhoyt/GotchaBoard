@@ -8,11 +8,14 @@
     "dev:server": "npm rebuild && node --watch server/index.js",
     "dev:client": "vite",
     "build": "vite build",
-    "start": "npm run build && electron-rebuild -f -w better-sqlite3 && codesign --force --sign - node_modules/better-sqlite3/build/Release/better_sqlite3.node && electron .",
+    "start": "npm run build && electron .",
     "start:server": "npm rebuild && npm run build && node server/index.js",
     "import:pinterest": "node import/pinterest.js",
     "pack": "npm run build && electron-builder --dir",
-    "dist": "npm run build && electron-rebuild -f -w better-sqlite3 && codesign --force --sign - node_modules/better-sqlite3/build/Release/better_sqlite3.node && electron-builder --config.npmRebuild=false",
+    "dist": "npm run build && electron-builder",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist:linux": "npm run build && electron-builder --linux",
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
@@ -44,6 +47,7 @@
   "build": {
     "appId": "com.gotchaboard.app",
     "productName": "GotchaBoard",
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
     "directories": {
       "output": "dist"
     },
@@ -69,10 +73,26 @@
     "mac": {
       "category": "public.app-category.productivity",
       "target": [
-        "dmg",
-        "zip"
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        },
+        {
+          "target": "zip",
+          "arch": ["x64", "arm64"]
+        }
       ],
-      "icon": "build/icon.icns"
+      "icon": "build/icon.icns",
+      "identity": null,
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
+    },
+    "dmg": {
+      "title": "${productName} ${version}",
+      "contents": [
+        { "x": 130, "y": 220 },
+        { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
+      ]
     },
     "win": {
       "target": [
@@ -83,7 +103,13 @@
     },
     "nsis": {
       "oneClick": true,
-      "perMachine": false
+      "perMachine": false,
+      "deleteAppDataOnUninstall": false
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "icon": "build/icon.iconset",
+      "category": "Graphics"
     }
   }
 }
