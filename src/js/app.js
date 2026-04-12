@@ -625,14 +625,18 @@ async function saveDetailTags(imageId) {
       closeDetail();
       const card = document.querySelector(`.image-card[data-id="${imageId}"]`);
       if (card && msnry) {
+        _renderingGrid = true;
         await sweep(card, 0).finished;
         msnry.remove(card);
-        msnry.layout();
+        requestAnimationFrame(() => {
+          if (msnry) msnry.layout();
+          scrollEl.scrollTop = savedScroll;
+          _renderingGrid = false;
+        });
       }
       state.images = state.images.filter(i => i.id !== imageId);
       state.totalImages = Math.max(0, state.totalImages - 1);
       updateCounts();
-      scrollEl.scrollTop = savedScroll;
     }
   } catch (err) {
     toast('Failed to save tags');
@@ -748,16 +752,20 @@ function bindDetailEvents(image) {
       closeDetail();
       const card = document.querySelector(`.image-card[data-id="${image.id}"]`);
       if (card && msnry) {
+        _renderingGrid = true;
         await sweep(card, 0).finished;
         msnry.remove(card);
-        msnry.layout();
+        requestAnimationFrame(() => {
+          if (msnry) msnry.layout();
+          scrollEl.scrollTop = savedScroll;
+          _renderingGrid = false;
+        });
       }
       state.images = state.images.filter(i => i.id !== image.id);
       state.totalImages = Math.max(0, state.totalImages - 1);
       updateCounts();
       await loadTags();
     } catch (err) { alert(`Failed to delete: ${err.message}`); }
-    finally { scrollEl.scrollTop = savedScroll; }
   });
 }
 
