@@ -104,16 +104,28 @@ function buildImageFilter(query) {
     params.push(tagName, tagName);
   }
 
-  // Multi-tag AND filter (comma-separated names)
+  // Multi-tag OR filter (comma-separated names) — sidebar checkbox selection
   if (tags && !tag) {
     const tagList = tags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
     if (tagList.length > 0) {
       where.push(`images.id IN (
-        SELECT image_id FROM image_tags it3
+        SELECT DISTINCT image_id FROM image_tags it3
         JOIN tags t3 ON t3.id = it3.tag_id
         WHERE t3.name IN (${tagList.map(() => '?').join(',')})
-        GROUP BY image_id
-        HAVING COUNT(DISTINCT t3.name) = ?
+      )`);
+      params.push(...tagList);
+    }
+  }
+
+  // Multi-tag AND filter (for collection preview — ?tags_and=name1,name2)
+  if (query.tags_and) {
+    const tagList = query.tags_and.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
+    if (tagList.length > 0) {
+      where.push(`images.id IN (
+        SELECT image_id FROM image_tags it_and
+        JOIN tags t_and ON t_and.id = it_and.tag_id
+        WHERE t_and.name IN (${tagList.map(() => '?').join(',')})
+        GROUP BY image_id HAVING COUNT(DISTINCT t_and.name) = ?
       )`);
       params.push(...tagList, tagList.length);
     }
@@ -243,6 +255,18 @@ router.get('/', (req, res) => {
     const whereClause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
     const query = `${BASE_QUERY} ${whereClause} GROUP BY images.id ORDER BY images.saved_at DESC`;
     res.json(db.prepare(query).all(...params).map(rowToImage));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ── GET /api/images/counts ────────────────────────────────────────
+router.get('/counts', (req, res) => {
+  try {
+    const total    = db.prepare('SELECT COUNT(*) as c FROM images').get().c;
+    const untagged = db.prepare('SELECT COUNT(*) as c FROM images WHERE id NOT IN (SELECT DISTINCT image_id FROM image_tags)').get().c;
+    res.json({ total, untagged });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Internal server error' });

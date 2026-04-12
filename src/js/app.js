@@ -6,7 +6,7 @@ import '../styles/main.scss';
 import { toggleTheme }    from './utils/theme.js';
 import { getTagColor }    from './utils/tagColor.js';
 import { attachTagSuggestions } from './utils/tagSuggest.js';
-import { calcColumnWidth, DEFAULT_CARD_WIDTH, initMasonry } from './utils/grid.js';
+import { calcColumnWidth, DEFAULT_CARD_WIDTH, initMasonry, layoutAfterImages } from './utils/grid.js';
 import { sweep }          from './animations.js';
 import { SelectionManager } from './multiselect.js';
 import { DragStack }      from './dragStack.js';
@@ -93,8 +93,10 @@ function buildImageQuery() {
 }
 
 async function loadImages() {
+  const seq = ++_loadSeq;
   const q = buildImageQuery();
   const images = await apiFetch('/images' + (q ? '?' + q : ''));
+  if (seq !== _loadSeq) return;   // a newer call was made while we were waiting — discard
   if (state.sortOrder === 'saved_at_asc') images.reverse();
   state.images = images;
   renderGrid();
@@ -115,8 +117,12 @@ async function loadCollections() {
 let msnry          = null;
 let currentCardWidth = DEFAULT_CARD_WIDTH;
 let layoutTimer    = null;
-let _detailSuggest = null;
-let _addGotSuggest = null;
+let _loadSeq       = 0;   // monotonic counter — stale loadImages() responses are discarded
+let _detailSuggest      = null;
+let _addGotSuggest      = null;
+let _collectionModal    = null;
+let _collectionSuggest  = null;
+let _editingCollectionId = null;
 
 // Prefer requestIdleCallback so Masonry layout runs between frames (no forced-reflow
 // violation, no main-thread blocking during user interactions). Fall back to setTimeout
@@ -173,7 +179,9 @@ function renderGrid() {
   state.images.forEach((image, idx) => grid.appendChild(buildCard(image, idx)));
 
   msnry = initMasonry(grid, '.image-card');
-  // Skeletons provide stable heights — per-card load handlers call scheduleLayout()
+  // Belt-and-suspenders: after ALL images finish loading (or error), force one
+  // final Masonry layout so cards never end up overlapping or mis-positioned.
+  layoutAfterImages(grid, msnry);
 
   syncSelectionUI();
   renderActiveFilters();
@@ -293,15 +301,14 @@ function buildTagItem(tag, isChild) {
   li.className = 'tag-item' + (isChild ? ' child-tag' : '');
 
   const isActive = state.activeTags.includes(tag.id);
-  const isMulti  = state.activeTags.length > 1 && isActive;
-  if (isActive) li.classList.add(isMulti ? 'multi-active' : 'active');
+  if (isActive) li.classList.add('active');
   li.dataset.tagId = tag.id;
 
   const tagColor = tag.color || getTagColor(tag.name);
-  if (tagColor && !isActive) li.style.background = tagColor;
+  if (tagColor) li.style.background = tagColor;
 
   li.innerHTML = `
-    <span class="tag-dot"></span>
+    <input type="checkbox" class="tag-check" ${isActive ? 'checked' : ''} />
     <span class="tag-name">${esc(tag.name)}</span>
     <span class="tag-count">${tag.count || 0}</span>
     <span class="tag-actions">
@@ -309,20 +316,19 @@ function buildTagItem(tag, isChild) {
     </span>
   `;
 
-  li.querySelector('.tag-name').addEventListener('click', e => {
-    if (e.ctrlKey || e.metaKey) {
-      if (state.activeTags.includes(tag.id)) {
-        state.activeTags = state.activeTags.filter(id => id !== tag.id);
-      } else {
-        state.activeTags = [...state.activeTags, tag.id];
-      }
+  // Prevent the browser from natively toggling the checkbox — renderTagList() sets correct state
+  li.querySelector('.tag-check').addEventListener('click', e => e.preventDefault());
+
+  li.addEventListener('click', e => {
+    if (e.target.closest('.tag-actions')) return;
+    if (state.activeTags.includes(tag.id)) {
+      state.activeTags = state.activeTags.filter(id => id !== tag.id);
     } else {
-      state.activeTags = state.activeTags[0] === tag.id && state.activeTags.length === 1
-        ? [] : [tag.id];
+      state.activeTags = [...state.activeTags, tag.id];
     }
     state.showUntagged = false;
     state.activeCollection = null;
-    document.getElementById('all-images-btn').classList.remove('active');
+    document.getElementById('all-images-btn').classList.toggle('active', state.activeTags.length === 0);
     document.getElementById('untagged-btn').classList.remove('active');
     renderTagList();
     renderCollections();
@@ -354,7 +360,10 @@ function renderCollections() {
     li.innerHTML = `
       <span class="collection-icon">◎</span>
       <span class="collection-name">${esc(col.name)}</span>
-      <button class="collection-delete" title="Delete">✕</button>
+      <span class="collection-actions">
+        <button class="collection-edit" title="Edit">✎</button>
+        <button class="collection-delete" title="Delete">✕</button>
+      </span>
     `;
 
     li.querySelector('.collection-name').addEventListener('click', () => {
@@ -366,6 +375,11 @@ function renderCollections() {
       renderCollections();
       renderTagList();
       loadImages();
+    });
+
+    li.querySelector('.collection-edit').addEventListener('click', e => {
+      e.stopPropagation();
+      openCollectionModal('edit', col);
     });
 
     li.querySelector('.collection-delete').addEventListener('click', async e => {
@@ -440,12 +454,13 @@ function buildFilterChip(label, onRemove) {
 
 // ── Count badges ───────────────────────────────────────────────────
 async function updateCounts() {
-  const all = await apiFetch('/images').catch(() => []);
-  document.getElementById('all-images-btn').dataset.count = all.length;
-  document.getElementById('saved-count') && (document.getElementById('saved-count').textContent = `${all.length} saved`);
-
-  const untagged = await apiFetch('/images?untagged=1').catch(() => []);
-  document.getElementById('untagged-btn').dataset.count = untagged.length;
+  try {
+    const { total, untagged } = await apiFetch('/images/counts');
+    document.getElementById('all-images-btn').dataset.count = total;
+    const savedEl = document.getElementById('saved-count');
+    if (savedEl) savedEl.textContent = `${total} saved`;
+    document.getElementById('untagged-btn').dataset.count = untagged;
+  } catch (_) {}
 }
 
 // ── Detail panel ───────────────────────────────────────────────────
@@ -628,14 +643,164 @@ async function createTag(name) {
   } catch (err) { alert(`Failed to create tag: ${err.message}`); }
 }
 
-async function createCollection(name) {
+// ── Collection modal ───────────────────────────────────────────────
+function _createCollectionModal() {
+  const modal = document.createElement('div');
+  modal.id = 'collection-modal';
+  modal.hidden = true;
+  modal.innerHTML = `
+    <div id="collection-modal-backdrop"></div>
+    <div id="collection-modal-dialog" role="dialog" aria-modal="true">
+      <h3 id="collection-modal-title">New Collection</h3>
+      <div class="collection-form-row">
+        <input type="text" id="collection-name-input" placeholder="Collection name" maxlength="100" />
+      </div>
+      <div class="collection-form-row">
+        <label>Filter tags (AND — images must have all selected tags):</label>
+        <div class="detail-tags-wrap" id="collection-selected-tags"></div>
+        <div style="margin-top:6px">
+          <input type="text" class="detail-add-tag-input" id="collection-tag-input" placeholder="+ add tag" autocomplete="off" />
+        </div>
+      </div>
+      <p id="collection-match-count" class="collection-match-count"></p>
+      <div id="collection-modal-actions">
+        <button id="collection-modal-cancel" class="btn">Cancel</button>
+        <button id="collection-modal-save" class="btn btn-primary" disabled>Create</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  modal.querySelector('#collection-modal-backdrop').addEventListener('click', closeCollectionModal);
+  modal.querySelector('#collection-modal-cancel').addEventListener('click', closeCollectionModal);
+  modal.querySelector('#collection-modal-save').addEventListener('click', saveCollection);
+  modal.querySelector('#collection-name-input').addEventListener('input', updateCollectionSaveBtn);
+  modal.querySelector('#collection-tag-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const val = e.target.value.trim();
+      if (val && !getCollectionTagNames().includes(val)) {
+        addCollectionTagPill(val);
+        updateCollectionSaveBtn();
+        updateCollectionMatchCount();
+      }
+      e.target.value = '';
+    }
+    if (e.key === 'Escape') closeCollectionModal();
+  });
+  modal.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeCollectionModal();
+  });
+
+  return modal;
+}
+
+function openCollectionModal(mode, col = null) {
+  _editingCollectionId = mode === 'edit' ? col.id : null;
+
+  if (!_collectionModal) _collectionModal = _createCollectionModal();
+
+  const isEdit = mode === 'edit';
+  _collectionModal.querySelector('#collection-modal-title').textContent = isEdit ? 'Edit Collection' : 'New Collection';
+  const saveBtn = _collectionModal.querySelector('#collection-modal-save');
+  saveBtn.textContent = isEdit ? 'Save' : 'Create';
+
+  const nameInput = _collectionModal.querySelector('#collection-name-input');
+  nameInput.value = isEdit ? col.name : '';
+
+  const selectedTags = _collectionModal.querySelector('#collection-selected-tags');
+  selectedTags.innerHTML = '';
+  if (isEdit) {
+    const tq = col.tag_query || { tags: [] };
+    (tq.tags || []).forEach(name => addCollectionTagPill(name));
+  }
+
+  _collectionSuggest?.destroy();
+  const tagInput = _collectionModal.querySelector('#collection-tag-input');
+  tagInput.value = '';
+  _collectionSuggest = attachTagSuggestions(tagInput, () => state.tags, name => {
+    if (getCollectionTagNames().includes(name)) return;
+    addCollectionTagPill(name);
+    tagInput.value = '';
+    updateCollectionSaveBtn();
+    updateCollectionMatchCount();
+  });
+
+  _collectionModal.hidden = false;
+  updateCollectionSaveBtn();
+  updateCollectionMatchCount();
+  setTimeout(() => nameInput.focus(), 50);
+}
+
+function closeCollectionModal() {
+  if (_collectionModal) _collectionModal.hidden = true;
+  _collectionSuggest?.destroy();
+  _collectionSuggest = null;
+  _editingCollectionId = null;
+}
+
+function addCollectionTagPill(name) {
+  const wrap = _collectionModal.querySelector('#collection-selected-tags');
+  const t = state.tags.find(t => t.name === name);
+  const color = t?.color || getTagColor(name);
+  const pill = document.createElement('span');
+  pill.className = 'detail-tag-pill';
+  pill.dataset.tag = name;
+  pill.style.background = color;
+  pill.innerHTML = `${esc(name)}<button class="detail-tag-remove" title="Remove">&times;</button>`;
+  pill.querySelector('.detail-tag-remove').addEventListener('click', () => {
+    pill.remove();
+    updateCollectionSaveBtn();
+    updateCollectionMatchCount();
+  });
+  wrap.appendChild(pill);
+}
+
+function getCollectionTagNames() {
+  if (!_collectionModal) return [];
+  return [..._collectionModal.querySelectorAll('#collection-selected-tags .detail-tag-pill')].map(p => p.dataset.tag);
+}
+
+function updateCollectionSaveBtn() {
+  const name = _collectionModal?.querySelector('#collection-name-input')?.value.trim();
+  const tags = getCollectionTagNames();
+  const btn = _collectionModal?.querySelector('#collection-modal-save');
+  if (btn) btn.disabled = !name || tags.length === 0;
+}
+
+async function updateCollectionMatchCount() {
+  const names = getCollectionTagNames();
+  const el = _collectionModal?.querySelector('#collection-match-count');
+  if (!el) return;
+  if (names.length === 0) { el.textContent = ''; return; }
   try {
-    await apiFetch('/smart-collections', {
-      method: 'POST',
-      body: JSON.stringify({ name, tag_query: { operator: 'AND', tags: [] } })
-    });
+    const images = await apiFetch('/images?tags_and=' + encodeURIComponent(names.join(',')));
+    const count = Array.isArray(images) ? images.length : 0;
+    el.textContent = `${count} Got${count !== 1 ? 's' : ''} match this filter`;
+  } catch (_) { el.textContent = ''; }
+}
+
+async function saveCollection() {
+  const name = _collectionModal.querySelector('#collection-name-input').value.trim();
+  const tags = getCollectionTagNames();
+  if (!name || tags.length === 0) return;
+
+  try {
+    if (_editingCollectionId) {
+      await apiFetch(`/smart-collections/${_editingCollectionId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ name, tag_query: { operator: 'AND', tags } })
+      });
+      if (state.activeCollection === _editingCollectionId) await loadImages();
+    } else {
+      await apiFetch('/smart-collections', {
+        method: 'POST',
+        body: JSON.stringify({ name, tag_query: { operator: 'AND', tags } })
+      });
+    }
+    closeCollectionModal();
     await loadCollections();
-  } catch (err) { alert(`Failed to create collection: ${err.message}`); }
+  } catch (err) { alert(`Failed to save collection: ${err.message}`); }
 }
 
 // ── Bulk action handler ────────────────────────────────────────────
@@ -1019,8 +1184,7 @@ function bindEventListeners() {
   });
 
   document.getElementById('new-collection-btn').addEventListener('click', () => {
-    const name = prompt('Collection name:');
-    if (name?.trim()) createCollection(name.trim());
+    openCollectionModal('create');
   });
 
   document.querySelectorAll('.grid-scale-btn').forEach(btn => {
