@@ -260,8 +260,18 @@ router.get('/', (req, res) => {
   try {
     const { where, params } = buildImageFilter(req.query);
     const whereClause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
-    const query = `${BASE_QUERY} ${whereClause} GROUP BY images.id ORDER BY images.saved_at DESC`;
-    res.json(db.prepare(query).all(...params).map(rowToImage));
+
+    const limit  = Math.min(Math.max(parseInt(req.query.limit)  || 60, 1), 500);
+    const offset = Math.max(parseInt(req.query.offset) || 0, 0);
+
+    const total = db.prepare(
+      `SELECT COUNT(DISTINCT images.id) as c FROM images ${whereClause}`
+    ).get(...params).c;
+
+    const query = `${BASE_QUERY} ${whereClause} GROUP BY images.id ORDER BY images.saved_at DESC LIMIT ? OFFSET ?`;
+    const images = db.prepare(query).all(...params, limit, offset).map(rowToImage);
+
+    res.json({ images, total, limit, offset });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Internal server error' });

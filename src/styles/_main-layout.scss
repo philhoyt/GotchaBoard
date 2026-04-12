@@ -1,6 +1,8 @@
 /* ── Reset ────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+.hidden { display: none !important; }
+
 /* ── Base ─────────────────────────────────────────────────────── */
 html, body {
   height: 100%;
@@ -176,7 +178,7 @@ section {
   position:           relative;
 }
 .tag-check:checked {
-  background: var(--color-lemon);
+  background: var(--color-peach);
   border-color: var(--ink);
 }
 .tag-check:checked::after {

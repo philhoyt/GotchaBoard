@@ -6,7 +6,7 @@ import '../styles/main.scss';
 import { toggleTheme }    from './utils/theme.js';
 import { getTagColor }    from './utils/tagColor.js';
 import { attachTagSuggestions } from './utils/tagSuggest.js';
-import { calcColumnWidth, DEFAULT_CARD_WIDTH, initMasonry, layoutAfterImages } from './utils/grid.js';
+import { calcColumnWidth, DEFAULT_CARD_WIDTH, initMasonry } from './utils/grid.js';
 import { sweep }          from './animations.js';
 import { SelectionManager } from './multiselect.js';
 import { DragStack }      from './dragStack.js';
@@ -24,12 +24,19 @@ const state = {
   collections: [],
 
   activeTags:       [],
+  checkedTags:      [],    // tags selected via checkbox (multi-select OR filter)
   activeCollection: null,
   showUntagged:     false,
   searchQuery:      '',
   sortOrder:        'saved_at_desc',
 
   detailImageId: null,
+
+  // Pagination
+  page:        0,    // offset of next page to load
+  pageSize:    60,
+  totalImages: 0,
+  loading:     false,
 };
 
 // ── Utilities ──────────────────────────────────────────────────────
@@ -92,15 +99,40 @@ function buildImageQuery() {
   return params.toString();
 }
 
-async function loadImages() {
+async function loadImages(append = false) {
+  if (state.loading) return;
+  state.loading = true;
+
   const seq = ++_loadSeq;
-  const q = buildImageQuery();
-  const images = await apiFetch('/images' + (q ? '?' + q : ''));
-  if (seq !== _loadSeq) return;   // a newer call was made while we were waiting — discard
-  if (state.sortOrder === 'saved_at_asc') images.reverse();
-  state.images = images;
-  renderGrid();
-  updateCounts();
+
+  if (!append) state.page = 0;
+
+  try {
+    const base = buildImageQuery();
+    const params = new URLSearchParams(base);
+    params.set('limit',  state.pageSize);
+    params.set('offset', state.page);
+    const data = await apiFetch('/images?' + params.toString());
+    if (seq !== _loadSeq) return;   // a newer call superseded this one
+
+    const { images, total } = data;
+    if (state.sortOrder === 'saved_at_asc') images.reverse();
+
+    state.totalImages = total;
+
+    if (append) {
+      state.images = [...state.images, ...images];
+      appendToGrid(images);
+    } else {
+      state.images = images;
+      renderGrid();
+    }
+
+    state.page += images.length;
+    updateCounts();
+  } finally {
+    state.loading = false;
+  }
 }
 
 async function loadTags() {
@@ -179,12 +211,25 @@ function renderGrid() {
   state.images.forEach((image, idx) => grid.appendChild(buildCard(image, idx)));
 
   msnry = initMasonry(grid, '.image-card');
-  // Belt-and-suspenders: after ALL images finish loading (or error), force one
-  // final Masonry layout so cards never end up overlapping or mis-positioned.
-  layoutAfterImages(grid, msnry);
+  // Force a layout pass after the browser has had a chance to paint the skeletons.
+  // This catches any measurement drift without waiting for ALL images to load
+  // (which is slow for large grids with lazy-loaded images).
+  requestAnimationFrame(() => { if (msnry) msnry.layout(); });
 
   syncSelectionUI();
   renderActiveFilters();
+}
+
+function appendToGrid(images) {
+  const grid = document.getElementById('image-grid');
+  if (!msnry || !images.length) return;
+
+  const startIdx = state.images.length - images.length;
+  const newCards = images.map((image, i) => buildCard(image, startIdx + i));
+
+  newCards.forEach(card => grid.appendChild(card));
+  msnry.appended(newCards);
+  requestAnimationFrame(() => { if (msnry) msnry.layout(); });
 }
 
 function buildCard(image, idx) {
@@ -294,21 +339,27 @@ function renderTagList() {
     const kids = childrenByParent[parent.id] || [];
     for (const child of kids) list.appendChild(buildTagItem(child, true));
   }
+
+  // Show/hide the clear button based on checked tags
+  const clearBtn = document.getElementById('clear-tags-btn');
+  if (clearBtn) clearBtn.classList.toggle('hidden', !(state.checkedTags && state.checkedTags.length > 0));
 }
 
 function buildTagItem(tag, isChild) {
   const li = document.createElement('li');
   li.className = 'tag-item' + (isChild ? ' child-tag' : '');
 
-  const isActive = state.activeTags.includes(tag.id);
-  if (isActive) li.classList.add('active');
+  const isChecked = state.checkedTags?.includes(tag.id);
+  const isSingle  = state.activeTags.length === 1 && state.activeTags[0] === tag.id && !isChecked;
+  if (isSingle)  li.classList.add('active');
+  if (isChecked) li.classList.add('multi-active');
   li.dataset.tagId = tag.id;
 
   const tagColor = tag.color || getTagColor(tag.name);
-  if (tagColor) li.style.background = tagColor;
+  if (tagColor && !isSingle && !isChecked) li.style.background = tagColor;
 
   li.innerHTML = `
-    <input type="checkbox" class="tag-check" ${isActive ? 'checked' : ''} />
+    <input type="checkbox" class="tag-check" ${isChecked ? 'checked' : ''} />
     <span class="tag-name">${esc(tag.name)}</span>
     <span class="tag-count">${tag.count || 0}</span>
     <span class="tag-actions">
@@ -316,15 +367,38 @@ function buildTagItem(tag, isChild) {
     </span>
   `;
 
-  // Prevent the browser from natively toggling the checkbox — renderTagList() sets correct state
-  li.querySelector('.tag-check').addEventListener('click', e => e.preventDefault());
+  // Checkbox click → multi-select OR filter (append/remove from checkedTags)
+  li.querySelector('.tag-check').addEventListener('click', e => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (!state.checkedTags) state.checkedTags = [];
+    if (state.checkedTags.includes(tag.id)) {
+      state.checkedTags = state.checkedTags.filter(id => id !== tag.id);
+    } else {
+      state.checkedTags = [...state.checkedTags, tag.id];
+    }
+    // Checked tags become the active filter
+    state.activeTags = [...state.checkedTags];
+    state.showUntagged = false;
+    state.activeCollection = null;
+    document.getElementById('all-images-btn').classList.toggle('active', state.activeTags.length === 0);
+    document.getElementById('untagged-btn').classList.remove('active');
+    renderTagList();
+    renderCollections();
+    loadImages();
+  });
 
+  // Tag row click (not checkbox) → single-tag browse (switch, don't append)
   li.addEventListener('click', e => {
     if (e.target.closest('.tag-actions')) return;
-    if (state.activeTags.includes(tag.id)) {
-      state.activeTags = state.activeTags.filter(id => id !== tag.id);
+    if (e.target.closest('.tag-check')) return;  // handled above
+    // Clear any checked state — single browse replaces everything
+    state.checkedTags = [];
+    // If clicking the already-active single tag, deselect it
+    if (state.activeTags.length === 1 && state.activeTags[0] === tag.id) {
+      state.activeTags = [];
     } else {
-      state.activeTags = [...state.activeTags, tag.id];
+      state.activeTags = [tag.id];
     }
     state.showUntagged = false;
     state.activeCollection = null;
@@ -369,6 +443,7 @@ function renderCollections() {
     li.querySelector('.collection-name').addEventListener('click', () => {
       state.activeCollection = state.activeCollection === col.id ? null : col.id;
       state.activeTags = [];
+      state.checkedTags = [];
       state.showUntagged = false;
       document.getElementById('all-images-btn').classList.toggle('active', !state.activeCollection);
       document.getElementById('untagged-btn').classList.remove('active');
@@ -407,6 +482,7 @@ function renderActiveFilters() {
       if (!t) return;
       container.appendChild(buildFilterChip(`#${t.name}`, () => {
         state.activeTags = state.activeTags.filter(id => id !== tagId);
+        state.checkedTags = (state.checkedTags || []).filter(id => id !== tagId);
         if (state.activeTags.length === 0) document.getElementById('all-images-btn').classList.add('active');
         renderTagList();
         loadImages();
@@ -632,6 +708,7 @@ async function confirmDeleteTag(tag) {
   try {
     await apiFetch(`/tags/${tag.id}`, { method: 'DELETE' });
     state.activeTags = state.activeTags.filter(id => id !== tag.id);
+    state.checkedTags = (state.checkedTags || []).filter(id => id !== tag.id);
     await Promise.all([loadImages(), loadTags()]);
   } catch (err) { alert(`Failed to delete tag: ${err.message}`); }
 }
@@ -820,8 +897,10 @@ async function handleBulkAction({ action, ids, tags = [], add = [], remove = [] 
       await Promise.all([loadImages(), loadTags()]);
     } else {
       // Tag operations — patch only the affected cards, no grid rebuild
-      const q = buildImageQuery();
-      const fresh = await apiFetch('/images' + (q ? '?' + q : ''));
+      const patchParams = new URLSearchParams(buildImageQuery());
+      patchParams.set('limit', Math.max(state.images.length, 200));
+      patchParams.set('offset', 0);
+      const { images: fresh } = await apiFetch('/images?' + patchParams.toString());
       for (const id of ids) {
         const img = fresh.find(i => i.id === id);
         if (img) patchCardBadges(id, img.tags);
@@ -845,8 +924,10 @@ async function handleDrop(tagId, imageIds) {
     const tagName = state.tags.find(t => t.id === tagId)?.name || tagId;
 
     // Patch only affected cards — no grid rebuild
-    const q = buildImageQuery();
-    const fresh = await apiFetch('/images' + (q ? '?' + q : ''));
+    const dropParams = new URLSearchParams(buildImageQuery());
+    dropParams.set('limit', Math.max(state.images.length, 200));
+    dropParams.set('offset', 0);
+    const { images: fresh } = await apiFetch('/images?' + dropParams.toString());
     for (const id of imageIds) {
       const img = fresh.find(i => i.id === id);
       if (img) patchCardBadges(id, img.tags);
@@ -1117,6 +1198,7 @@ async function importData(input) {
 function bindEventListeners() {
   document.getElementById('all-images-btn').addEventListener('click', () => {
     state.activeTags = [];
+    state.checkedTags = [];
     state.activeCollection = null;
     state.showUntagged = false;
     document.getElementById('all-images-btn').classList.add('active');
@@ -1129,12 +1211,34 @@ function bindEventListeners() {
   document.getElementById('untagged-btn').addEventListener('click', () => {
     state.showUntagged = !state.showUntagged;
     state.activeTags = [];
+    state.checkedTags = [];
     state.activeCollection = null;
     document.getElementById('untagged-btn').classList.toggle('active', state.showUntagged);
     document.getElementById('all-images-btn').classList.toggle('active', !state.showUntagged);
     renderTagList();
     renderCollections();
     loadImages();
+  });
+
+  document.getElementById('clear-tags-btn').addEventListener('click', () => {
+    state.activeTags = [];
+    state.checkedTags = [];
+    state.activeCollection = null;
+    state.showUntagged = false;
+    document.getElementById('all-images-btn').classList.add('active');
+    document.getElementById('untagged-btn').classList.remove('active');
+    renderTagList();
+    renderCollections();
+    loadImages();
+  });
+
+  document.getElementById('grid-scroll').addEventListener('scroll', () => {
+    if (state.loading) return;
+    if (state.images.length >= state.totalImages) return;
+    const el = document.getElementById('grid-scroll');
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < 400) {
+      loadImages(true);
+    }
   });
 
   document.getElementById('search-input').addEventListener('input', debounce(e => {
