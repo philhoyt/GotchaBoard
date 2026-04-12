@@ -5,7 +5,7 @@ import '../styles/discover.scss';
 
 import { toggleTheme } from './utils/theme.js';
 import { getTagColor } from './utils/tagColor.js';
-import { calcColumnWidth, DEFAULT_CARD_WIDTH, initMasonry, layoutAfterImages } from './utils/grid.js';
+import { calcColumnWidth, DEFAULT_CARD_WIDTH, initMasonry } from './utils/grid.js';
 
 'use strict';
 
@@ -41,12 +41,22 @@ async function apiFetch(path, opts = {}) {
 }
 
 // ── State ──────────────────────────────────────────────────────────
-let allTags    = [];
-let feedOffset = 0;
-let feedSeed   = 0;
-let msnry      = null;
-const INITIAL_SIZE = 200;
-const PAGE_SIZE    = 50;
+let allTags         = [];
+let feedOffset      = 0;
+let feedSeed        = 0;
+let msnry           = null;
+let currentCardWidth = DEFAULT_CARD_WIDTH;
+let layoutTimer     = null;
+const INITIAL_SIZE  = 200;
+const PAGE_SIZE     = 50;
+
+function scheduleLayout() {
+  if (layoutTimer) return;
+  layoutTimer = setTimeout(() => {
+    layoutTimer = null;
+    if (msnry) msnry.layout();
+  }, 100);
+}
 
 // ── Grid scale ─────────────────────────────────────────────────────
 function updateCardWidth() {
@@ -54,6 +64,7 @@ function updateCardWidth() {
   const innerWidth = scroll.clientWidth - 24; // subtract 12px left + 12px right padding
   const targetWidth = Number(localStorage.getItem('gotcha-discover-card-width')) || DEFAULT_CARD_WIDTH;
   const actualWidth = calcColumnWidth(innerWidth, targetWidth);
+  currentCardWidth  = actualWidth;
   document.getElementById('discover-grid').style.setProperty('--card-width', actualWidth + 'px');
   return actualWidth;
 }
@@ -76,7 +87,7 @@ function appendCards(candidates) {
   });
   if (msnry) {
     msnry.appended(newItems);
-    layoutAfterImages(grid, msnry);
+    msnry.layout();
   }
 }
 
@@ -91,9 +102,13 @@ function buildCard(candidate) {
     catch (_) { return candidate.source_type; }
   })();
 
+  const placeholderHeight = Math.round(currentCardWidth * 1.3);
+
   card.innerHTML = `
-    <img class="discover-card-img" src="${esc(candidate.image_url)}"
-         alt="" loading="lazy">
+    <div class="card-image-wrap">
+      <div class="card-skeleton" style="height:${placeholderHeight}px"></div>
+      <img class="discover-card-img" src="${esc(candidate.image_url)}" alt="">
+    </div>
     <div class="discover-card-meta">
       <div class="discover-card-top">
         <span class="discover-source" title="${esc(candidate.page_url || '')}">${esc(sourceDomain)}</span>
@@ -106,12 +121,32 @@ function buildCard(candidate) {
   `;
 
   const img = card.querySelector('.discover-card-img');
+
+  // After 10s, stop shimmer and show a fallback state
+  const timeout = setTimeout(() => {
+    const sk = card.querySelector('.card-skeleton');
+    if (sk) {
+      sk.style.animation  = 'none';
+      sk.style.background = 'var(--surface)';
+      sk.textContent      = '⚠';
+      Object.assign(sk.style, { display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink-dim)', fontSize: '20px' });
+    }
+  }, 10000);
+
   img.addEventListener('load', () => {
+    clearTimeout(timeout);
     if (img.naturalWidth < 500 || img.naturalHeight < 500) {
       dismissCandidate(candidate.id, card);
+      return;
     }
+    card.querySelector('.card-skeleton')?.remove();
+    img.classList.add('img-loaded');
+    scheduleLayout();
   });
-  img.addEventListener('error', () => dismissCandidate(candidate.id, card));
+  img.addEventListener('error', () => {
+    clearTimeout(timeout);
+    dismissCandidate(candidate.id, card);
+  });
   img.addEventListener('click', () => saveCandidate(candidate));
   card.querySelector('.discover-save-btn').addEventListener('click', () => saveCandidate(candidate));
   card.querySelector('.discover-dismiss-btn').addEventListener('click', () => dismissCandidate(candidate.id, card));
@@ -149,7 +184,7 @@ async function loadFeed() {
       return el;
     });
     msnry = initMasonry(grid, '.discover-card');
-    layoutAfterImages(grid, msnry);
+    // Skeletons provide stable heights — per-card load handlers call scheduleLayout()
 
     feedOffset = data.candidates.length;
     updateLoadMore(feedOffset, data.total);

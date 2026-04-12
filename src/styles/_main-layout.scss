@@ -313,7 +313,8 @@ section {
   position:     relative;
 }
 .card-inner   { overflow: hidden; border-radius: 0; }
-.image-card img { width: 100%; display: block; background: var(--surface); min-height: 60px; }
+
+#image-grid:empty { min-height: 50vh; }
 
 /* Card meta */
 .card-meta    { padding: 8px 10px 10px; background: var(--surface); }

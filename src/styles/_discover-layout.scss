@@ -91,7 +91,7 @@ html, body {
   width: var(--card-width, 220px);
 }
 
-/* ── Candidate cards ──────────────────────────────────────────── */
+/* ── Candidate cards ──────────────────────���───────────────────── */
 .discover-card {
   border:        var(--bd);
   box-shadow:    var(--sh);
@@ -114,11 +114,11 @@ html, body {
 .discover-card-img {
   width:      100%;
   display:    block;
-  min-height: 60px;
-  background: var(--surface2);
   object-fit: cover;
   cursor:     pointer;
 }
+
+#discover-grid:empty { min-height: 50vh; }
 
 .discover-card-meta {
   padding: 8px 10px 10px;

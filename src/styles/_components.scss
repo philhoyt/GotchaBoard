@@ -534,6 +534,39 @@
   box-shadow: 1px 1px 0 var(--sh-color);
 }
 
+/* ── Grid loading — skeleton shimmer + card fade-in ───────────── */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+.card-skeleton {
+  width:            100%;
+  background:       linear-gradient(
+    90deg,
+    var(--surface2) 25%,
+    var(--surface)  50%,
+    var(--surface2) 75%
+  );
+  background-size:  200% 100%;
+  animation:        shimmer 1.5s ease-in-out infinite;
+}
+
+.card-image-wrap {
+  position:    relative;
+  overflow:    hidden;
+  line-height: 0;
+}
+.card-image-wrap img {
+  width:      100%;
+  display:    block;
+  opacity:    0;
+  transition: opacity 0.25s ease;
+}
+.card-image-wrap img.img-loaded {
+  opacity: 1;
+}
+
 /* ── Grid Scale Toggles ────────────────────────────────────────── */
 .grid-scale-group { display: flex; flex-shrink: 0; }
 .grid-scale-btn {

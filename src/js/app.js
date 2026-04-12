@@ -5,7 +5,7 @@ import '../styles/main.scss';
 
 import { toggleTheme }    from './utils/theme.js';
 import { getTagColor }    from './utils/tagColor.js';
-import { calcColumnWidth, DEFAULT_CARD_WIDTH, initMasonry, layoutAfterImages } from './utils/grid.js';
+import { calcColumnWidth, DEFAULT_CARD_WIDTH, initMasonry } from './utils/grid.js';
 import { sweep }          from './animations.js';
 import { SelectionManager } from './multiselect.js';
 import { DragStack }      from './dragStack.js';
@@ -109,13 +109,24 @@ async function loadCollections() {
 }
 
 // ── Grid rendering ─────────────────────────────────────────────────
-let msnry = null;
+let msnry          = null;
+let currentCardWidth = DEFAULT_CARD_WIDTH;
+let layoutTimer    = null;
+
+function scheduleLayout() {
+  if (layoutTimer) return;
+  layoutTimer = setTimeout(() => {
+    layoutTimer = null;
+    if (msnry) msnry.layout();
+  }, 100);
+}
 
 function updateCardWidth() {
   const scroll = document.getElementById('grid-scroll');
   const innerWidth = scroll.clientWidth - 24; // subtract 12px left + 12px right padding
   const targetWidth = Number(localStorage.getItem('gotcha-card-width')) || DEFAULT_CARD_WIDTH;
   const actualWidth = calcColumnWidth(innerWidth, targetWidth);
+  currentCardWidth  = actualWidth;
   const grid = document.getElementById('image-grid');
   grid.style.setProperty('--card-width', actualWidth + 'px');
   grid.classList.toggle('compact-grid', actualWidth < 140);
@@ -147,7 +158,7 @@ function renderGrid() {
   state.images.forEach((image, idx) => grid.appendChild(buildCard(image, idx)));
 
   msnry = initMasonry(grid, '.image-card');
-  layoutAfterImages(grid, msnry);
+  // Skeletons provide stable heights — per-card load handlers call scheduleLayout()
 
   syncSelectionUI();
   renderActiveFilters();
@@ -172,16 +183,35 @@ function buildCard(image, idx) {
   let title = image.page_title;
   if (!title) { try { title = new URL(image.source_url).hostname; } catch (_) { title = ''; } }
 
+  const placeholderHeight = Math.round(currentCardWidth * 1.3);
+
   card.innerHTML = `
     <div class="card-select-zone"><div class="card-checkbox"></div></div>
     <div class="card-inner">
-      ${thumb ? `<img src="${esc(thumb)}" alt="${esc(title)}" loading="lazy">` : '<div style="height:100px;background:#f3f4f6"></div>'}
+      <div class="card-image-wrap">
+        <div class="card-skeleton" style="height:${placeholderHeight}px"></div>
+        ${thumb ? `<img src="${esc(thumb)}" alt="${esc(title)}" loading="lazy">` : ''}
+      </div>
       <div class="card-meta">
         <div class="card-title">${esc(title)}</div>
         ${tagBadges ? `<div class="card-badges">${tagBadges}</div>` : ''}
       </div>
     </div>
   `;
+
+  if (thumb) {
+    const img = card.querySelector('img');
+    img.addEventListener('load', () => {
+      card.querySelector('.card-skeleton')?.remove();
+      img.classList.add('img-loaded');
+      scheduleLayout();
+    });
+    img.addEventListener('error', () => {
+      const sk = card.querySelector('.card-skeleton');
+      if (sk) { sk.style.animation = 'none'; sk.style.background = 'var(--surface)'; }
+      scheduleLayout();
+    });
+  }
 
   card.querySelector('.card-select-zone').addEventListener('click', e => {
     e.stopPropagation();
