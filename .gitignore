@@ -5,3 +5,5 @@
 *.log
 .env
 /dist
+gotchaboard@1.0.0
+node
