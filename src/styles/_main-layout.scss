@@ -316,8 +316,9 @@ section {
 
 #image-grid:empty { min-height: 50vh; }
 
-/* Card meta */
-.card-meta    { padding: 8px 10px 10px; background: var(--surface); }
+/* Card meta — min-height reserves space for both title and badge rows so the
+   card height never changes when tags are added/removed (avoids Masonry reflow). */
+.card-meta    { padding: 8px 10px 10px; background: var(--surface); min-height: 60px; }
 .card-title   { font-size: 12px; font-weight: 500; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 5px; }
 .card-badges  { display: flex; gap: 4px; flex-wrap: wrap; }
 
@@ -562,6 +563,152 @@ section {
 #bulk-tag-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
 #bulk-tag-cancel,
 #bulk-tag-confirm  { padding: 7px 16px; font-size: 13px; font-weight: 500; }
+
+/* ── Manage Tags modal ────────────────────────────────────────── */
+#bulk-tag-dialog.manage-tags-dialog { min-width: 440px; max-width: 580px; padding: 0; overflow: hidden; }
+
+#manage-tags-header {
+  display:         flex;
+  align-items:     baseline;
+  justify-content: space-between;
+  padding:         16px 20px 14px;
+  border-bottom:   var(--bd);
+  background:      var(--surface);
+}
+#manage-tags-title    { font-size: 14px; font-weight: 700; }
+#manage-tags-subtitle { font-size: 11px; color: var(--ink-dim); }
+
+#manage-tags-current,
+#manage-tags-add-section {
+  padding: 14px 20px;
+}
+#manage-tags-current    { border-bottom: var(--bd); }
+#manage-tags-add-section #bulk-tag-dialog-actions { display: none; }
+
+.manage-tags-section-label {
+  font-size:      10px;
+  font-weight:    700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color:          var(--ink-dim);
+  margin-bottom:  10px;
+}
+.manage-tags-empty { font-size: 12px; color: var(--ink-dim); }
+
+#manage-tags-pills,
+#manage-tags-pending {
+  display:   flex;
+  flex-wrap: wrap;
+  gap:       6px;
+  min-height: 28px;
+}
+#manage-tags-pending { margin-top: 10px; }
+
+/* Base pill (button) */
+.mt-pill {
+  display:     inline-flex;
+  align-items: center;
+  gap:         4px;
+  font-size:   11px;
+  font-weight: 600;
+  padding:     3px 8px;
+  border:      var(--bd-sm);
+  box-shadow:  var(--sh-sm);
+  color:       #111111;
+  cursor:      pointer;
+  background:  none;
+  font-family: inherit;
+  border-radius: 0;
+  transition:  transform 0.1s ease, box-shadow 0.1s ease, opacity 0.1s ease;
+  white-space: nowrap;
+}
+.mt-pill:hover { transform: translate(-1px, -1px); box-shadow: 2px 2px 0 var(--sh-color); }
+
+.mt-pill-icon {
+  font-size:  10px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+/* Full tag — normal, clicking queues removal */
+.mt-pill-full { /* background set inline */ }
+
+/* Partial tag — dimmed, clicking promotes */
+.mt-pill-partial { opacity: 0.55; }
+.mt-pill-partial:hover { opacity: 1; }
+
+/* Queued for removal */
+.mt-pill-remove {
+  background:      var(--surface2) !important;
+  color:           var(--ink-dim);
+  text-decoration: line-through;
+  box-shadow:      none;
+  border-color:    var(--color-coral);
+}
+.mt-pill-remove:hover { color: var(--color-coral); }
+
+/* Queued for promotion (partial → all) */
+.mt-pill-promote { outline: 2px solid var(--color-mint); outline-offset: 1px; }
+
+/* Queued for addition (new tag) */
+.mt-pill-add { cursor: default; }
+.mt-pill-add:hover { transform: none; box-shadow: var(--sh-sm); }
+.mt-pill-add .detail-tag-remove { border: none; background: none; cursor: pointer; font-size: 12px; padding: 0 0 0 2px; color: rgba(0,0,0,0.5); }
+.mt-pill-add .detail-tag-remove:hover { color: #111; }
+
+/* Input + suggestions */
+#manage-tags-input-wrap { position: relative; }
+#manage-tags-input {
+  width:      100%;
+  padding:    6px 10px;
+  font-size:  12px;
+  border:     var(--bd);
+  background: var(--bg);
+  color:      var(--ink);
+  font-family: inherit;
+  border-radius: 0;
+  min-width:  0;
+  flex:       none;
+}
+#manage-tags-input:focus { outline: none; box-shadow: 2px 2px 0 var(--sh-color); }
+
+#manage-tags-suggestions {
+  position:   absolute;
+  top:        calc(100% + 2px);
+  left:       0;
+  right:      0;
+  background: var(--bg);
+  border:     var(--bd);
+  box-shadow: var(--sh);
+  z-index:    10;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.mt-suggestion {
+  display:     flex;
+  align-items: center;
+  gap:         8px;
+  padding:     7px 12px;
+  font-size:   12px;
+  cursor:      pointer;
+  color:       var(--ink);
+}
+.mt-suggestion::before {
+  content:       '';
+  display:       inline-block;
+  width:         8px;
+  height:        8px;
+  border-radius: 50%;
+  background:    var(--sug-dot, var(--ink-dim));
+  flex-shrink:   0;
+}
+.mt-suggestion:hover { background: var(--surface2); }
+
+#bulk-tag-dialog.manage-tags-dialog #bulk-tag-dialog-actions {
+  padding:     14px 20px;
+  border-top:  var(--bd);
+  margin:      0;
+}
 
 /* ── Drag state ───────────────────────────────────────────────── */
 body.is-dragging * { cursor: grabbing !important; }

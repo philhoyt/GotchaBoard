@@ -5,6 +5,7 @@ import '../styles/discover.scss';
 
 import { toggleTheme } from './utils/theme.js';
 import { getTagColor } from './utils/tagColor.js';
+import { attachTagSuggestions } from './utils/tagSuggest.js';
 import { calcColumnWidth, DEFAULT_CARD_WIDTH, initMasonry } from './utils/grid.js';
 
 'use strict';
@@ -42,6 +43,7 @@ async function apiFetch(path, opts = {}) {
 
 // ── State ──────────────────────────────────────────────────────────
 let allTags         = [];
+let _saveSuggest    = null;
 let feedOffset      = 0;
 let feedSeed        = 0;
 let msnry           = null;
@@ -285,8 +287,12 @@ function openSaveDialog(candidate) {
   panel.classList.add('open');
   overlay.classList.add('open');
 
-  document.getElementById('save-dialog-tag-input').addEventListener('keydown', e => {
-    if (e.key === 'Enter') { e.preventDefault(); const v = e.target.value.trim(); if (v) { addPill(v); e.target.value = ''; } }
+  const tagInput = document.getElementById('save-dialog-tag-input');
+  _saveSuggest?.destroy();
+  _saveSuggest = attachTagSuggestions(tagInput, () => allTags, (name) => addPill(name));
+
+  tagInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); const v = tagInput.value.trim(); if (v) { addPill(v); tagInput.value = ''; } }
     if (e.key === 'Escape') closeSaveDialog();
   });
 
@@ -325,6 +331,7 @@ function closeSaveDialog() {
   document.getElementById('detail-panel').classList.remove('open');
   document.getElementById('detail-overlay').classList.remove('open');
   document.getElementById('detail-content').innerHTML = '';
+  _saveSuggest?.destroy(); _saveSuggest = null;
 }
 
 // ── Dismiss candidate ──────────────────────────────────────────────

@@ -2,10 +2,20 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
+const sharp = require('sharp');
 const { db, IMAGES_DIR, THUMBS_DIR } = require('../db');
 const { downloadImage } = require('../lib/download');
 const { generateThumbnail, thumbFilenameFor } = require('../lib/thumbnail');
 const { upsertTags } = require('./tags');
+
+async function readDimensions(filepath) {
+  try {
+    const { width, height } = await sharp(filepath).metadata();
+    return { width: width || null, height: height || null };
+  } catch (_) {
+    return { width: null, height: null };
+  }
+}
 
 const router = express.Router();
 
@@ -46,6 +56,7 @@ async function handleUpload(req, res) {
 
     const thumbFilename = thumbFilenameFor(filename);
     const thumbnail = await generateThumbnail(destPath, thumbFilename);
+    const { width, height } = await readDimensions(destPath);
 
     const imageId = uuidv4();
     const rawTags = req.body.tags ? JSON.parse(req.body.tags) : [];
@@ -57,9 +68,9 @@ async function handleUpload(req, res) {
 
     db.transaction(() => {
       db.prepare(`
-        INSERT INTO images (id, filename, thumbnail, source_url, page_title, page_url, notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).run(imageId, filename, thumbnail, source_url, page_title, page_url, notes);
+        INSERT INTO images (id, filename, thumbnail, source_url, page_title, page_url, notes, width, height)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(imageId, filename, thumbnail, source_url, page_title, page_url, notes, width, height);
       for (const tagId of tagIds) {
         db.prepare('INSERT OR IGNORE INTO image_tags (image_id, tag_id) VALUES (?, ?)').run(imageId, tagId);
       }
@@ -199,15 +210,16 @@ router.post('/save', async (req, res) => {
 
     const thumbFilename = thumbFilenameFor(filename);
     const thumbnail = await generateThumbnail(filepath, thumbFilename);
+    const { width, height } = await readDimensions(filepath);
 
     const imageId = uuidv4();
     const tagIds = Array.isArray(tags) && tags.length > 0 ? upsertTags(tags) : [];
 
     const saveTransaction = db.transaction(() => {
       db.prepare(`
-        INSERT INTO images (id, filename, thumbnail, source_url, page_title, page_url, notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).run(imageId, filename, thumbnail, source_url, page_title || null, page_url || null, notes || null);
+        INSERT INTO images (id, filename, thumbnail, source_url, page_title, page_url, notes, width, height)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(imageId, filename, thumbnail, source_url, page_title || null, page_url || null, notes || null, width, height);
 
       for (const tagId of tagIds) {
         db.prepare('INSERT OR IGNORE INTO image_tags (image_id, tag_id) VALUES (?, ?)').run(imageId, tagId);

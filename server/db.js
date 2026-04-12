@@ -179,6 +179,8 @@ function runMigrations() {
   const imageCols2 = db.prepare('PRAGMA table_info(images)').all().map(c => c.name);
   if (!imageCols2.includes('pin_url'))  db.prepare('ALTER TABLE images ADD COLUMN pin_url TEXT').run();
   if (!imageCols2.includes('alt_text')) db.prepare('ALTER TABLE images ADD COLUMN alt_text TEXT').run();
+  if (!imageCols2.includes('width'))    db.prepare('ALTER TABLE images ADD COLUMN width INTEGER').run();
+  if (!imageCols2.includes('height'))   db.prepare('ALTER TABLE images ADD COLUMN height INTEGER').run();
 
   // 4. Drop board_id from images if it still exists (SQLite 3.35+)
   const imageCols = db.prepare('PRAGMA table_info(images)').all().map(c => c.name);
@@ -195,5 +197,30 @@ function runMigrations() {
 }
 
 runMigrations();
+
+// Backfill width/height for existing images that don't have dimensions yet.
+// Runs async and non-blocking — sharp only reads image headers so it's fast.
+;(async () => {
+  try {
+    const sharp = require('sharp');
+    const missing = db.prepare('SELECT id, filename FROM images WHERE width IS NULL OR height IS NULL').all();
+    console.log(`[db] Images missing dimensions: ${missing.length}`);
+    if (missing.length === 0) return;
+    console.log(`[db] Backfilling dimensions for ${missing.length} images…`);
+    const update = db.prepare('UPDATE images SET width = ?, height = ? WHERE id = ?');
+    let filled = 0;
+    for (const row of missing) {
+      try {
+        const { width, height } = await sharp(path.join(IMAGES_DIR, row.filename)).metadata();
+        if (width && height) { update.run(width, height, row.id); filled++; }
+      } catch (e) {
+        console.warn(`[db] Could not read dimensions for ${row.filename}:`, e.message);
+      }
+    }
+    console.log(`[db] Dimension backfill complete (${filled}/${missing.length} filled).`);
+  } catch (e) {
+    console.error('[db] Backfill error:', e.message);
+  }
+})();
 
 module.exports = { db, IMAGES_DIR, THUMBS_DIR, generateUniqueSlug, slugify };

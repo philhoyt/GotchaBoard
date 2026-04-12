@@ -323,6 +323,17 @@
   box-shadow: 3px 3px 0 var(--sh-color);
 }
 
+/* ── Tag autocomplete dropdown ─────────────────────────────────── */
+.tag-suggest-dropdown {
+  position:   fixed;
+  background: var(--bg);
+  border:     var(--bd);
+  box-shadow: var(--sh);
+  z-index:    600;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
 /* ── Toast ─────────────────────────────────────────────────────── */
 #toast-container {
   position:       fixed;

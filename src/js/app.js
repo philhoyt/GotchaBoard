@@ -5,6 +5,7 @@ import '../styles/main.scss';
 
 import { toggleTheme }    from './utils/theme.js';
 import { getTagColor }    from './utils/tagColor.js';
+import { attachTagSuggestions } from './utils/tagSuggest.js';
 import { calcColumnWidth, DEFAULT_CARD_WIDTH, initMasonry } from './utils/grid.js';
 import { sweep }          from './animations.js';
 import { SelectionManager } from './multiselect.js';
@@ -72,9 +73,8 @@ async function loadAll() {
   await Promise.all([loadImages(), loadTags(), loadCollections()]);
 }
 
-async function loadImages() {
+function buildImageQuery() {
   const params = new URLSearchParams();
-
   if (state.showUntagged) {
     params.set('untagged', '1');
   } else if (state.activeCollection) {
@@ -88,10 +88,13 @@ async function loadImages() {
     }).filter(Boolean);
     params.set('tags', names.join(','));
   }
-
   if (state.searchQuery) params.set('q', state.searchQuery);
+  return params.toString();
+}
 
-  const images = await apiFetch('/images' + (params.toString() ? '?' + params : ''));
+async function loadImages() {
+  const q = buildImageQuery();
+  const images = await apiFetch('/images' + (q ? '?' + q : ''));
   if (state.sortOrder === 'saved_at_asc') images.reverse();
   state.images = images;
   renderGrid();
@@ -112,13 +115,24 @@ async function loadCollections() {
 let msnry          = null;
 let currentCardWidth = DEFAULT_CARD_WIDTH;
 let layoutTimer    = null;
+let _detailSuggest = null;
+let _addGotSuggest = null;
+
+// Prefer requestIdleCallback so Masonry layout runs between frames (no forced-reflow
+// violation, no main-thread blocking during user interactions). Fall back to setTimeout
+// for browsers that don't support it, but keep a short deadline so the grid doesn't
+// stay mis-positioned for long.
+const _schedRIC  = window.requestIdleCallback
+  ? (fn) => requestIdleCallback(fn, { timeout: 500 })
+  : (fn) => setTimeout(fn, 100);
+const _cancelRIC = window.cancelIdleCallback || clearTimeout;
 
 function scheduleLayout() {
   if (layoutTimer) return;
-  layoutTimer = setTimeout(() => {
+  layoutTimer = _schedRIC(() => {
     layoutTimer = null;
     if (msnry) msnry.layout();
-  }, 100);
+  });
 }
 
 function updateCardWidth() {
@@ -147,6 +161,7 @@ function renderGrid() {
   grid.style.display = '';
   empty.classList.remove('visible');
 
+  if (layoutTimer) { _cancelRIC(layoutTimer); layoutTimer = null; }
   if (msnry) { msnry.destroy(); msnry = null; }
   grid.innerHTML = '';
   updateCardWidth();
@@ -173,7 +188,7 @@ function buildCard(image, idx) {
   const thumb = (image.thumbnail && image.thumbnail !== 'error' && image.thumbnail !== 'placeholder')
     ? `/thumbs/${image.thumbnail}` : null;
 
-  const tagBadges = (image.tags || []).slice(0, 3).map(name => {
+  const tagBadges = (image.tags || []).map(name => {
     const t     = state.tags.find(t => t.name === name);
     const color = t?.color || getTagColor(name);
     const style = color ? `style="background:${esc(color)}"` : '';
@@ -183,7 +198,12 @@ function buildCard(image, idx) {
   let title = image.page_title;
   if (!title) { try { title = new URL(image.source_url).hostname; } catch (_) { title = ''; } }
 
-  const placeholderHeight = Math.round(currentCardWidth * 1.3);
+  // Use stored dimensions for an exact skeleton height — when the real image loads
+  // the card height won't change, so Masonry never needs to re-layout.
+  // Fall back to 1.3 aspect ratio for images that predate dimension storage.
+  const knownDimensions = image.width && image.height;
+  const aspectRatio = knownDimensions ? (image.height / image.width) : 1.3;
+  const placeholderHeight = Math.round(currentCardWidth * aspectRatio);
 
   card.innerHTML = `
     <div class="card-select-zone"><div class="card-checkbox"></div></div>
@@ -194,7 +214,7 @@ function buildCard(image, idx) {
       </div>
       <div class="card-meta">
         <div class="card-title">${esc(title)}</div>
-        ${tagBadges ? `<div class="card-badges">${tagBadges}</div>` : ''}
+        <div class="card-badges">${tagBadges}</div>
       </div>
     </div>
   `;
@@ -204,12 +224,15 @@ function buildCard(image, idx) {
     img.addEventListener('load', () => {
       card.querySelector('.card-skeleton')?.remove();
       img.classList.add('img-loaded');
-      scheduleLayout();
+      // Only re-layout when dimensions were unknown (skeleton height was estimated).
+      // When dimensions are stored the skeleton is already the right height, so
+      // the card height doesn't change and Masonry doesn't need to reflow.
+      if (!knownDimensions) scheduleLayout();
     });
     img.addEventListener('error', () => {
       const sk = card.querySelector('.card-skeleton');
       if (sk) { sk.style.animation = 'none'; sk.style.background = 'var(--surface)'; }
-      scheduleLayout();
+      if (!knownDimensions) scheduleLayout();
     });
   }
 
@@ -484,11 +507,37 @@ function getDetailTags() {
 }
 
 async function saveDetailTags(imageId) {
+  const tags = getDetailTags();
   try {
-    await apiFetch(`/images/${imageId}`, { method: 'PATCH', body: JSON.stringify({ tags: getDetailTags() }) });
-    await Promise.all([loadImages(), loadTags()]);
+    await apiFetch(`/images/${imageId}`, { method: 'PATCH', body: JSON.stringify({ tags }) });
+    // Patch state + card DOM in-place — no grid re-render needed
+    const img = state.images.find(i => i.id === imageId);
+    if (img) img.tags = tags;
+    patchCardBadges(imageId, tags);
+    // Reload tags only (sidebar counts + new tag defs)
+    await loadTags();
   } catch (err) {
     toast('Failed to save tags');
+  }
+}
+
+function patchCardBadges(imageId, tags) {
+  const card = document.querySelector(`.image-card[data-id="${imageId}"]`);
+  if (!card) return;
+  const badgeHtml = tags.map(name => {
+    const t     = state.tags.find(t => t.name === name);
+    const color = t?.color || getTagColor(name);
+    const style = color ? `style="background:${esc(color)}"` : '';
+    return `<span class="tag-badge" ${style}>${esc(name)}</span>`;
+  }).join('');
+  let badgesEl = card.querySelector('.card-badges');
+  if (badgesEl) {
+    badgesEl.innerHTML = badgeHtml;
+  } else if (badgeHtml) {
+    badgesEl = document.createElement('div');
+    badgesEl.className = 'card-badges';
+    badgesEl.innerHTML = badgeHtml;
+    card.querySelector('.card-meta')?.appendChild(badgesEl);
   }
 }
 
@@ -520,15 +569,25 @@ function bindDetailEvents(image) {
   });
 
   const addInput = document.getElementById('detail-add-tag');
+
+  const commitDetailTag = (name) => {
+    if (!name || getDetailTags().includes(name)) return;
+    addDetailTagPill(name, image.id);
+    saveDetailTags(image.id);
+  };
+
+  _detailSuggest?.destroy();
+  _detailSuggest = attachTagSuggestions(addInput, () => state.tags, (name) => {
+    commitDetailTag(name);
+  });
+
   addInput.addEventListener('keydown', e => {
     if (e.key === 'Enter') {
       e.preventDefault();
       const val = addInput.value.trim();
       if (!val) return;
-      if (getDetailTags().includes(val)) { addInput.value = ''; return; }
-      addDetailTagPill(val, image.id);
+      commitDetailTag(val);
       addInput.value = '';
-      saveDetailTags(image.id);
     }
     if (e.key === 'Escape') addInput.blur();
   });
@@ -549,6 +608,7 @@ function closeDetail() {
   document.getElementById('detail-panel').classList.remove('open');
   document.getElementById('detail-overlay').classList.remove('open');
   state.detailImageId = null;
+  _detailSuggest?.destroy(); _detailSuggest = null;
 }
 
 // ── Tag management (inline) ────────────────────────────────────────
@@ -579,22 +639,32 @@ async function createCollection(name) {
 }
 
 // ── Bulk action handler ────────────────────────────────────────────
-async function handleBulkAction({ action, ids, tags }) {
+async function handleBulkAction({ action, ids, tags = [], add = [], remove = [] }) {
   try {
     await apiFetch('/gots/bulk', {
       method: 'POST',
-      body: JSON.stringify({ ids, action, tags })
+      body: JSON.stringify({ ids, action, tags, add, remove })
     });
 
     if (action === 'delete') {
       const cards = [...document.querySelectorAll('.image-card')]
         .filter(c => ids.includes(c.dataset.id));
       await Promise.all(cards.map((c, i) => sweep(c, i * 40).finished));
+      selection.clear();
+      toast(`Deleted ${ids.length} Gots`);
+      await Promise.all([loadImages(), loadTags()]);
+    } else {
+      // Tag operations — patch only the affected cards, no grid rebuild
+      const q = buildImageQuery();
+      const fresh = await apiFetch('/images' + (q ? '?' + q : ''));
+      for (const id of ids) {
+        const img = fresh.find(i => i.id === id);
+        if (img) patchCardBadges(id, img.tags);
+      }
+      selection.clear();
+      toast(`Updated ${ids.length} Gots`);
+      await loadTags();
     }
-
-    selection.clear();
-    toast(action === 'delete' ? `Deleted ${ids.length} Gots` : `Updated ${ids.length} Gots`);
-    await Promise.all([loadImages(), loadTags()]);
   } catch (err) { alert(`Bulk action failed: ${err.message}`); }
 }
 
@@ -608,9 +678,18 @@ async function handleDrop(tagId, imageIds) {
       ].filter(Boolean) })
     });
     const tagName = state.tags.find(t => t.id === tagId)?.name || tagId;
+
+    // Patch only affected cards — no grid rebuild
+    const q = buildImageQuery();
+    const fresh = await apiFetch('/images' + (q ? '?' + q : ''));
+    for (const id of imageIds) {
+      const img = fresh.find(i => i.id === id);
+      if (img) patchCardBadges(id, img.tags);
+    }
+
     toast(`${imageIds.length} Got${imageIds.length > 1 ? 's' : ''} tagged → ${tagName}`);
     selection.clear();
-    await Promise.all([loadImages(), loadTags()]);
+    await loadTags();
   } catch (err) { alert(`Tag drop failed: ${err.message}`); }
 }
 
@@ -618,8 +697,9 @@ async function handleDrop(tagId, imageIds) {
 const selection = new SelectionManager();
 const bulkBar   = new BulkActionBar({
   selection,
-  onAction: handleBulkAction,
-  getTags:  () => state.images,   // images carry .tags[], used by remove_tags prompt
+  onAction:    handleBulkAction,
+  getTags:     () => state.images,  // images carry .tags[], used by manage_tags prompt
+  getTagDefs:  () => state.tags,    // tag definitions with .color, used for autocomplete
 });
 const dragStack = new DragStack({
   selection,
@@ -725,7 +805,13 @@ function openAddGotModal() {
     wrap.insertBefore(pill, input);
   };
 
-  document.getElementById('add-got-tag-input').addEventListener('keydown', e => {
+  const addGotTagInput = document.getElementById('add-got-tag-input');
+  _addGotSuggest?.destroy();
+  _addGotSuggest = attachTagSuggestions(addGotTagInput, () => state.tags, (name) => {
+    addModalPill(name);
+  });
+
+  addGotTagInput.addEventListener('keydown', e => {
     if (e.key === 'Enter') {
       e.preventDefault();
       const val = e.target.value.trim();
@@ -823,6 +909,7 @@ function closeAddGotModal() {
   const modal = document.getElementById('add-got-modal');
   modal.style.display = 'none';
   document.getElementById('add-got-dialog').innerHTML = '';
+  _addGotSuggest?.destroy(); _addGotSuggest = null;
 }
 
 // ── Settings helpers ───────────────────────────────────────────────
