@@ -149,7 +149,7 @@ async function crawlPage(pageUrl, sourceType, sourceId = null, { ogOnly = false 
 // ── runSourceCrawler ──────────────────────────────────────────────
 // Re-crawls pages where saved images came from.
 // Skips known JS-rendered hosts that never yield images.
-const SKIP_HOSTS = new Set(['www.pinterest.com', 'pinterest.com', 'www.reddit.com', 'reddit.com']);
+const SKIP_HOSTS = new Set(['www.pinterest.com', 'pinterest.com', 'www.reddit.com', 'reddit.com', 'www.facebook.com', 'facebook.com']);
 
 async function runSourceCrawler() {
   const hopDepth    = parseInt(process.env.LINK_HOP_DEPTH || '1');
@@ -230,7 +230,7 @@ async function crawlRssFeed(source) {
   // Extract item links from RSS/Atom
   const linkRe = /<link>([^<]+)<\/link>|<link[^>]+href=["']([^"']+)["']/g;
   const encRe  = /<enclosure[^>]+url=["']([^"']+)["'][^>]+type=["']image\/[^"']+["']/gi;
-  const imgRe  = /<media:content[^>]+url=["']([^"']+)["']/gi;
+  const mediaRe = /<media:content[^>]+url=["']([^"']+)["']/gi;
 
   const itemLinks = [];
   let m;
@@ -239,12 +239,26 @@ async function crawlRssFeed(source) {
     if (url.startsWith('http')) itemLinks.push(url);
   }
 
-  // Direct image enclosures
+  // Direct image enclosures and media:content tags
   while ((m = encRe.exec(xml)) !== null) {
     queueCandidate({ image_url: m[1], page_url: source.url, source_type: 'rss', source_id: source.id });
   }
-  while ((m = imgRe.exec(xml)) !== null) {
+  while ((m = mediaRe.exec(xml)) !== null) {
     queueCandidate({ image_url: m[1], page_url: source.url, source_type: 'rss', source_id: source.id });
+  }
+
+  // Images embedded in <description> or <content:encoded> HTML (e.g. Core77)
+  const descRe    = /<(?:description|content:encoded)>([\s\S]*?)<\/(?:description|content:encoded)>/gi;
+  const embImgRe  = /src=["']([^"']+\.(?:jpg|jpeg|png|webp|gif|avif))["']/gi;
+  while ((m = descRe.exec(xml)) !== null) {
+    const decoded = m[1].replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+    let img;
+    while ((img = embImgRe.exec(decoded)) !== null) {
+      if (img[1].startsWith('http')) {
+        queueCandidate({ image_url: img[1], page_url: source.url, source_type: 'rss', source_id: source.id });
+      }
+    }
+    embImgRe.lastIndex = 0; // reset for next description block
   }
 
   // Crawl item pages — og:image only to get the full-size hero photo
