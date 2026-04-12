@@ -613,15 +613,54 @@ async function saveDetailTags(imageId) {
   const tags = getDetailTags();
   try {
     await apiFetch(`/images/${imageId}`, { method: 'PATCH', body: JSON.stringify({ tags }) });
-    // Patch state + card DOM in-place — no grid re-render needed
     const img = state.images.find(i => i.id === imageId);
     if (img) img.tags = tags;
     patchCardBadges(imageId, tags);
-    // Reload tags only (sidebar counts + new tag defs)
     await loadTags();
+
+    // If a filter is active and this image no longer matches it, sweep it out
+    if (!imageMatchesCurrentFilter(tags)) {
+      closeDetail();
+      const card = document.querySelector(`.image-card[data-id="${imageId}"]`);
+      if (card && msnry) {
+        await sweep(card, 0).finished;
+        msnry.remove(card);
+        msnry.layout();
+      }
+      state.images = state.images.filter(i => i.id !== imageId);
+      state.totalImages = Math.max(0, state.totalImages - 1);
+      updateCounts();
+    }
   } catch (err) {
     toast('Failed to save tags');
   }
+}
+
+// Returns true if a set of tag names still satisfies the current sidebar filter.
+// Used after editing tags in the detail panel to decide if the card stays visible.
+function imageMatchesCurrentFilter(tagNames) {
+  // No filter — always visible
+  if (!state.showUntagged && !state.activeCollection && state.activeTags.length === 0 && !state.searchQuery) {
+    return true;
+  }
+  // Untagged filter
+  if (state.showUntagged) return tagNames.length === 0;
+  // Collection / search — can't evaluate client-side, leave card in place
+  if (state.activeCollection || state.searchQuery) return true;
+  // Tag filter (single-tag browse or checkbox OR)
+  if (state.activeTags.length > 0) {
+    const activeNames = new Set(
+      state.activeTags.flatMap(id => {
+        const t = state.tags.find(t => t.id === id);
+        if (!t) return [];
+        // Include the tag itself and any of its children
+        const children = state.tags.filter(c => c.parent_id === id).map(c => c.name);
+        return [t.name, ...children];
+      })
+    );
+    return tagNames.some(name => activeNames.has(name));
+  }
+  return true;
 }
 
 function patchCardBadges(imageId, tags) {
