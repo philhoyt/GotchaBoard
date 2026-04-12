@@ -5,7 +5,7 @@ const { db } = require('../db');
 const { downloadImage } = require('../lib/download');
 const { generateThumbnail, thumbFilenameFor } = require('../lib/thumbnail');
 const { upsertTags } = require('./tags');
-const { runDiscoverCycle } = require('../lib/crawler');
+const { runDiscoverCycle, getDiscoverStatus } = require('../lib/crawler');
 const { promoteAllPending } = require('../jobs/discoverJob');
 const { v4: uuidv4 } = require('uuid');
 
@@ -14,15 +14,32 @@ const router = express.Router();
 // ── GET /api/discover ──────────────────────────────────────────────
 router.get('/', (req, res) => {
   try {
-    const limit  = Math.min(parseInt(req.query.limit  || '50'), 200);
+    const limit  = Math.min(parseInt(req.query.limit  || '50'), 500);
     const offset = parseInt(req.query.offset || '0');
+    const seed   = parseInt(req.query.seed   || '1');
 
+    // Stable shuffle for the session: hash id against the seed so offset-based
+    // paging always picks up where it left off without repeats.
     const candidates = db.prepare(`
       SELECT * FROM discover_candidates
       WHERE status = 'shown'
-      ORDER BY discovered_at DESC
+      ORDER BY ((id * ?) % 2147483647)
       LIMIT ? OFFSET ?
-    `).all(limit, offset);
+    `).all(seed, limit, offset);
+
+    // Increment view count and auto-dismiss anything that hits 8 views
+    if (candidates.length > 0) {
+      const ids = candidates.map(c => c.id);
+      const placeholders = ids.map(() => '?').join(',');
+      db.prepare(`
+        UPDATE discover_candidates SET view_count = view_count + 1
+        WHERE id IN (${placeholders})
+      `).run(...ids);
+      db.prepare(`
+        UPDATE discover_candidates SET status = 'dismissed'
+        WHERE id IN (${placeholders}) AND view_count >= 8
+      `).run(...ids);
+    }
 
     const total = db.prepare(
       "SELECT COUNT(*) as n FROM discover_candidates WHERE status = 'shown'"
@@ -168,6 +185,11 @@ router.delete('/sources/:id', (req, res) => {
     console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
+});
+
+// ── GET /api/discover/running ──────────────────────────────────────
+router.get('/running', (req, res) => {
+  res.json(getDiscoverStatus());
 });
 
 // ── POST /api/discover/run ─────────────────────────────────────────

@@ -118,9 +118,10 @@ function queueCandidate({ image_url, page_url, page_title, source_type, source_i
   try {
     db.prepare(`
       INSERT OR IGNORE INTO discover_candidates
-        (image_url, page_url, page_title, source_type, source_id, source_query)
-      VALUES (?, ?, ?, ?, ?, ?)
+        (image_url, page_url, page_title, source_type, source_id, source_query, status)
+      VALUES (?, ?, ?, ?, ?, ?, 'shown')
     `).run(image_url, page_url || null, page_title || null, source_type, source_id, source_query);
+    discoverStatus.queued++;
     return true;
   } catch (_) {
     return false;
@@ -273,12 +274,31 @@ async function crawlRssFeed(source) {
   }
 }
 
+// ── Discover cycle status ─────────────────────────────────────────
+const discoverStatus = {
+  running:   false,
+  phase:     null,   // 'sources' | 'rss' | null
+  queued:    0,
+  startedAt: null,
+};
+
+function getDiscoverStatus() {
+  return { ...discoverStatus };
+}
+
 // ── runDiscoverCycle ──────────────────────────────────────────────
 // Runs all available sources. Called manually or by cron job.
 async function runDiscoverCycle() {
   console.log('[discover] Starting discovery cycle...');
+  discoverStatus.running   = true;
+  discoverStatus.queued    = 0;
+  discoverStatus.startedAt = new Date().toISOString();
+
+  // Promote any candidates stuck in pending from before this change
+  db.prepare("UPDATE discover_candidates SET status = 'shown' WHERE status = 'pending'").run();
 
   try {
+    discoverStatus.phase = 'sources';
     await runSourceCrawler();
     console.log('[discover] Source crawler done.');
   } catch (err) {
@@ -286,13 +306,16 @@ async function runDiscoverCycle() {
   }
 
   try {
+    discoverStatus.phase = 'rss';
     await runRssScraper();
     console.log('[discover] RSS scraper done.');
   } catch (err) {
     console.error('[discover] RSS scraper error:', err.message);
   }
 
+  discoverStatus.running = false;
+  discoverStatus.phase   = null;
   console.log('[discover] Cycle complete.');
 }
 
-module.exports = { runDiscoverCycle, runSourceCrawler, runRssScraper, crawlPage, queueCandidate };
+module.exports = { runDiscoverCycle, runSourceCrawler, runRssScraper, crawlPage, queueCandidate, getDiscoverStatus };

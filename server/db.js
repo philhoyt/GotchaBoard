@@ -120,7 +120,13 @@ function runMigrations() {
   // Remove taste-related candidates from existing databases
   db.prepare("DELETE FROM discover_candidates WHERE source_type IN ('taste_search', 'visual_sim')").run();
 
-  // 1. Add columns to tags table if upgrading from V1 schema
+  // 1. Add view_count to discover_candidates if upgrading from earlier schema
+  const candidateCols = db.prepare('PRAGMA table_info(discover_candidates)').all().map(c => c.name);
+  if (!candidateCols.includes('view_count')) {
+    db.prepare('ALTER TABLE discover_candidates ADD COLUMN view_count INTEGER NOT NULL DEFAULT 0').run();
+  }
+
+  // 2. Add columns to tags table if upgrading from V1 schema
   const tagCols = db.prepare('PRAGMA table_info(tags)').all().map(c => c.name);
   if (!tagCols.includes('slug'))       db.prepare('ALTER TABLE tags ADD COLUMN slug TEXT').run();
   if (!tagCols.includes('parent_id'))  db.prepare('ALTER TABLE tags ADD COLUMN parent_id TEXT REFERENCES tags(id) ON DELETE SET NULL').run();

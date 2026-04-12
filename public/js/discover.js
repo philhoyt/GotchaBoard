@@ -33,14 +33,47 @@ async function apiFetch(path, opts = {}) {
 
 // ── State ──────────────────────────────────────────────────────────
 let allTags = [];
+let feedOffset    = 0;
+let feedSeed      = 0;
+let feedCardCount = 0;  // tracks round-robin position across Load More calls
+const PAGE_SIZE = 50;
+
+// ── Column helpers ─────────────────────────────────────────────────
+function getDiscoverCols() {
+  const preferred = Number(localStorage.getItem('gotcha-discover-cols')) || 4;
+  const w = window.innerWidth;
+  if (w <= 600) return Math.min(preferred, 2);
+  if (w <= 900) return Math.min(preferred, 3);
+  return preferred;
+}
+
+function initGridCols() {
+  const grid = document.getElementById('discover-grid');
+  grid.innerHTML = '';
+  feedCardCount = 0;
+  const n = getDiscoverCols();
+  for (let i = 0; i < n; i++) {
+    const col = document.createElement('div');
+    col.className = 'discover-grid-col';
+    grid.appendChild(col);
+  }
+}
+
+function appendCards(candidates) {
+  const cols = document.querySelectorAll('.discover-grid-col');
+  if (!cols.length) return;
+  for (const c of candidates) {
+    cols[feedCardCount % cols.length].appendChild(buildCard(c));
+    feedCardCount++;
+  }
+}
 
 // ── Grid scale ─────────────────────────────────────────────────────
 function setGridCols(n) {
-  document.getElementById('discover-grid').style.setProperty('--grid-cols', n);
   document.querySelectorAll('.grid-scale-btn').forEach(btn => {
     btn.classList.toggle('active', Number(btn.dataset.cols) === n);
   });
-  localStorage.setItem('gotcha-grid-cols', n);
+  localStorage.setItem('gotcha-discover-cols', n);
 }
 
 // ── Render a candidate card ────────────────────────────────────────
@@ -56,7 +89,7 @@ function buildCard(candidate) {
 
   card.innerHTML = `
     <img class="discover-card-img" src="${esc(candidate.image_url)}"
-         alt="" loading="lazy" onerror="this.style.display='none'">
+         alt="" loading="lazy">
     <div class="discover-card-meta">
       <div class="discover-card-top">
         <span class="discover-source" title="${esc(candidate.page_url || '')}">${esc(sourceDomain)}</span>
@@ -68,7 +101,14 @@ function buildCard(candidate) {
     </div>
   `;
 
-  card.querySelector('.discover-card-img').addEventListener('click', () => saveCandidate(candidate));
+  const img = card.querySelector('.discover-card-img');
+  img.addEventListener('load', () => {
+    if (img.naturalWidth < 500 || img.naturalHeight < 500) {
+      dismissCandidate(candidate.id, card);
+    }
+  });
+  img.addEventListener('error', () => dismissCandidate(candidate.id, card));
+  img.addEventListener('click', () => saveCandidate(candidate));
   card.querySelector('.discover-save-btn').addEventListener('click', () => saveCandidate(candidate));
   card.querySelector('.discover-dismiss-btn').addEventListener('click', () => dismissCandidate(candidate.id, card));
 
@@ -77,24 +117,56 @@ function buildCard(candidate) {
 
 // ── Load feed ──────────────────────────────────────────────────────
 async function loadFeed() {
+  feedOffset = 0;
+  feedSeed   = Math.floor(Math.random() * 2147483647);
   showState('loading');
   try {
-    const { candidates } = await apiFetch('/discover?limit=200');
-    const grid = document.getElementById('discover-grid');
-    grid.innerHTML = '';
+    const data = await apiFetch(`/discover?limit=${PAGE_SIZE}&offset=0&seed=${feedSeed}`);
 
-    if (candidates.length === 0) {
+    if (data.candidates.length === 0) {
       showState('empty');
+      updateLoadMore(0, 0);
       return;
     }
 
     showState('grid');
-    for (const c of candidates) {
-      grid.appendChild(buildCard(c));
-    }
+    initGridCols();
+    appendCards(data.candidates);
+    feedOffset = data.candidates.length;
+    updateLoadMore(feedOffset, data.total);
   } catch (err) {
     showState('empty');
     console.error('[discover] load failed:', err);
+  }
+}
+
+async function loadMore() {
+  const btn = document.getElementById('load-more-btn');
+  btn.disabled = true;
+  btn.textContent = 'Loading…';
+  try {
+    const data = await apiFetch(`/discover?limit=${PAGE_SIZE}&offset=${feedOffset}&seed=${feedSeed}`);
+    appendCards(data.candidates);
+    feedOffset += data.candidates.length;
+    updateLoadMore(feedOffset, data.total);
+  } catch (err) {
+    toast('Failed to load more');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Load more';
+  }
+}
+
+function updateLoadMore(loaded, total) {
+  const wrap = document.getElementById('load-more-wrap');
+  const btn  = document.getElementById('load-more-btn');
+  if (!wrap) return;
+  const remaining = total - loaded;
+  if (remaining > 0) {
+    wrap.style.display = '';
+    btn.textContent = `Load more (${remaining.toLocaleString()} remaining)`;
+  } else {
+    wrap.style.display = 'none';
   }
 }
 
@@ -321,19 +393,48 @@ function closeSettings() {
 }
 
 // ── Run discovery ──────────────────────────────────────────────────
+let _discoverPollTimer = null;
+
+function startDiscoverPolling() {
+  const bar     = document.getElementById('discover-progress');
+  const text    = document.getElementById('discover-progress-text');
+  const allBtns = document.querySelectorAll('#run-discover-btn, #empty-run-btn');
+
+  bar.style.display = '';
+  allBtns.forEach(b => { b.disabled = true; b.textContent = 'Running…'; });
+
+  _discoverPollTimer = setInterval(async () => {
+    try {
+      const s = await apiFetch('/discover/running');
+      const phase = s.phase === 'rss' ? 'Scraping RSS feeds' : 'Crawling sources';
+      text.textContent = s.running
+        ? `${phase}… ${s.queued} candidate${s.queued !== 1 ? 's' : ''} found`
+        : `Done — ${s.queued} candidate${s.queued !== 1 ? 's' : ''} found`;
+
+      if (!s.running) {
+        stopDiscoverPolling();
+        loadFeed();
+      }
+    } catch (_) {}
+  }, 1000);
+}
+
+function stopDiscoverPolling() {
+  clearInterval(_discoverPollTimer);
+  _discoverPollTimer = null;
+  document.getElementById('discover-progress').style.display = 'none';
+  document.querySelectorAll('#run-discover-btn, #empty-run-btn').forEach(b => {
+    b.disabled = false;
+    b.textContent = 'Run Discovery';
+  });
+}
+
 async function runDiscovery(btn) {
-  const orig = btn.textContent;
-  btn.disabled   = true;
-  btn.textContent = 'Running…';
   try {
     await apiFetch('/discover/run', { method: 'POST' });
-    toast('Discovery cycle started — reload in a moment to see results');
-    setTimeout(() => loadFeed(), 5000);
+    startDiscoverPolling();
   } catch (err) {
     toast(`Failed: ${err.message}`);
-  } finally {
-    btn.disabled   = false;
-    btn.textContent = orig;
   }
 }
 
@@ -351,7 +452,7 @@ function wireDiscoverButton() {
 // ── Init ───────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
   // Grid density
-  const savedCols = localStorage.getItem('gotcha-grid-cols');
+  const savedCols = localStorage.getItem('gotcha-discover-cols');
   if (savedCols) setGridCols(Number(savedCols));
 
   document.querySelectorAll('.grid-scale-btn').forEach(btn => {
@@ -361,6 +462,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Run discovery
   document.getElementById('run-discover-btn').addEventListener('click', e => runDiscovery(e.currentTarget));
   document.getElementById('empty-run-btn')?.addEventListener('click', e => runDiscovery(e.currentTarget));
+  document.getElementById('load-more-btn')?.addEventListener('click', loadMore);
 
   // Settings
   document.getElementById('settings-btn').addEventListener('click', openSettings);
@@ -386,4 +488,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   await loadTags();
   await loadFeed();
+
+  // If a cycle is already running (e.g. triggered by cron), show the indicator
+  try {
+    const s = await apiFetch('/discover/running');
+    if (s.running) startDiscoverPolling();
+  } catch (_) {}
 });
