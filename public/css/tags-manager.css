@@ -31,7 +31,7 @@ body {
   padding:         5px 10px;
   border:          var(--bd-sm);
   box-shadow:      var(--sh-sm);
-  border-radius:   4px;
+  border-radius:   0;
   background:      var(--surface);
   transition:      transform 0.1s ease, box-shadow 0.1s ease;
 }
@@ -64,7 +64,7 @@ body {
   background:    var(--bg);
   color:         var(--ink);
   font-size:     14px;
-  border-radius: 4px;
+  border-radius: 0;
 }
 #tags-search:focus {
   outline:    none;
@@ -86,7 +86,7 @@ body {
   background:    var(--surface);
   border:        var(--bd);
   box-shadow:    var(--sh);
-  border-radius: 4px;
+  border-radius: 0;
   padding:       14px 16px;
   margin-bottom: 16px;
 }
@@ -106,7 +106,7 @@ body {
   background:    var(--bg);
   color:         var(--ink);
   font-size:     14px;
-  border-radius: 4px;
+  border-radius: 0;
 }
 .tag-form-inner input[type="text"]:focus {
   outline:    none;
@@ -118,7 +118,7 @@ body {
   height:        34px;
   padding:       2px;
   border:        var(--bd);
-  border-radius: 4px;
+  border-radius: 0;
   cursor:        pointer;
   background:    var(--bg);
 }
@@ -129,7 +129,7 @@ body {
   background:    var(--bg);
   color:         var(--ink);
   font-size:     13px;
-  border-radius: 4px;
+  border-radius: 0;
 }
 
 /* ── Tags list ────────────────────────────────────────────────── */
@@ -146,7 +146,7 @@ body {
   background:    var(--surface);
   border:        var(--bd);
   box-shadow:    var(--sh);
-  border-radius: 4px;
+  border-radius: 0;
   overflow:      hidden;
   transition:    transform 0.1s ease, box-shadow 0.1s ease;
 }
@@ -182,7 +182,7 @@ body {
   color:        var(--ink);
   background:   var(--surface2);
   padding:      2px 7px;
-  border-radius: 4px;
+  border-radius: 0;
   border:       var(--bd-sm);
   white-space:  nowrap;
 }
@@ -199,7 +199,7 @@ body {
   padding:       4px 8px;
   border:        var(--bd-sm);
   box-shadow:    var(--sh-sm);
-  border-radius: 4px;
+  border-radius: 0;
   font-size:     11px;
   font-weight:   500;
   cursor:        pointer;
@@ -272,7 +272,7 @@ body {
   background:    var(--bg);
   border:        var(--bd);
   box-shadow:    var(--sh-lg);
-  border-radius: 4px;
+  border-radius: 0;
   padding:       24px;
   width:         380px;
   max-width:     95vw;
@@ -306,7 +306,7 @@ body {
   background:    var(--bg);
   color:         var(--ink);
   font-size:     14px;
-  border-radius: 4px;
+  border-radius: 0;
 }
 .form-row input[type="text"]:focus,
 .form-row select:focus {
@@ -319,7 +319,7 @@ body {
   height:        38px;
   padding:       2px;
   border:        var(--bd);
-  border-radius: 4px;
+  border-radius: 0;
   cursor:        pointer;
   background:    var(--bg);
 }
@@ -339,99 +339,4 @@ body {
   line-height: 1.5;
 }
 
-/* ── Buttons (tags manager) ───────────────────────────────────── */
-/* These mirror components.css .btn specs */
-.primary-btn {
-  padding:       7px 16px;
-  background:    var(--color-lemon);
-  color:         #111111;
-  border:        var(--bd);
-  box-shadow:    var(--sh);
-  border-radius: 4px;
-  font-size:     13px;
-  font-weight:   500;
-  cursor:        pointer;
-  font-family:   inherit;
-  transition:    transform 0.1s ease, box-shadow 0.1s ease;
-}
-.primary-btn:hover {
-  transform:  translate(-1px, -1px);
-  box-shadow: 4px 4px 0 var(--sh-color);
-}
-.primary-btn:active {
-  transform:  translate(1px, 1px);
-  box-shadow: 1px 1px 0 var(--sh-color);
-}
-
-.ghost-btn {
-  padding:       7px 16px;
-  background:    var(--surface);
-  color:         var(--ink-dim);
-  border:        var(--bd);
-  box-shadow:    var(--sh-sm);
-  border-radius: 4px;
-  font-size:     13px;
-  cursor:        pointer;
-  font-family:   inherit;
-  transition:    transform 0.1s ease, box-shadow 0.1s ease;
-}
-.ghost-btn:hover {
-  transform:  translate(-1px, -1px);
-  box-shadow: 3px 3px 0 var(--sh-color);
-  color:      var(--ink);
-}
-
-.danger-btn {
-  padding:       7px 14px;
-  background:    var(--surface);
-  color:         var(--ink);
-  border:        var(--bd);
-  box-shadow:    var(--sh-sm);
-  border-radius: 4px;
-  font-size:     13px;
-  cursor:        pointer;
-  font-family:   inherit;
-  white-space:   nowrap;
-  transition:    transform 0.1s ease, box-shadow 0.1s ease, background 0.1s ease;
-}
-.danger-btn:hover {
-  background:   var(--color-coral);
-  color:        #111111;
-  border-color: var(--ink);
-  transform:    translate(-1px, -1px);
-  box-shadow:   3px 3px 0 var(--sh-color);
-}
-
-/* ── Toast ────────────────────────────────────────────────────── */
-#toast-container {
-  position:       fixed;
-  top:            20px;
-  right:          20px;
-  z-index:        2000;
-  display:        flex;
-  flex-direction: column;
-  gap:            8px;
-  pointer-events: none;
-}
-
-.toast {
-  background:    #0D0D0D;
-  color:         #FFFFFF;
-  padding:       10px 16px;
-  border:        2px solid #0D0D0D;
-  box-shadow:    var(--sh);
-  border-radius: 4px;
-  font-size:     13px;
-  animation:     toast-in 0.22s cubic-bezier(0.34,1.56,0.64,1) both;
-}
-.toast.toast-error { background: var(--color-coral); color: #111111; border-color: var(--ink); }
-.toast.toast-out   { animation: toast-out 0.18s ease-in forwards; }
-
-[data-theme="dark"] .toast {
-  background:   var(--color-lemon);
-  color:        #111111;
-  border-color: var(--ink);
-}
-
-@keyframes toast-in  { from { opacity:0; transform:translateY(-8px) scale(0.95); } to { opacity:1; transform:none; } }
-@keyframes toast-out { from { opacity:1; } to { opacity:0; transform:translateY(-6px); } }
+/* Buttons and toast are defined in components.css */

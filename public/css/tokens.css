@@ -46,6 +46,10 @@
 
   --bd:          2px solid #0D0D0D;
   --bd-sm:       1.5px solid #0D0D0D;
+
+  /* Navigation / dark-strip elements */
+  --nav-bg:      #0D0D0D;
+  --nav-text:    #FFFFFF;
 }
 
 /* ── Dark Mode ────────────────────────────────────────────────── */
@@ -64,4 +68,8 @@
 
   --bd:          2px solid #EDEDED;
   --bd-sm:       1.5px solid #EDEDED;
+
+  /* Navigation / dark-strip elements */
+  --nav-bg:      var(--surface2);
+  --nav-text:    var(--ink);
 }

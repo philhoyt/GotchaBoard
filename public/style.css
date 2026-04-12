@@ -297,34 +297,7 @@ section {
 @media (max-width: 900px) { #image-grid { column-count: min(var(--grid-cols, 4), 3); } }
 @media (max-width: 600px) { #image-grid { column-count: min(var(--grid-cols, 4), 2); } }
 
-/* ── Grid scale toggles ─────────────────────────────────────── */
-.grid-scale-group { display: flex; flex-shrink: 0; }
-.grid-scale-btn {
-  font-family:  'DM Sans', system-ui, sans-serif;
-  font-size:    11px;
-  font-weight:  600;
-  padding:      5px 8px;
-  border:       var(--bd);
-  background:   var(--surface);
-  color:        var(--ink-dim);
-  cursor:       pointer;
-  border-radius: 0;
-  transition:   background 0.1s ease, color 0.1s ease;
-  position:     relative;
-  user-select:  none;
-}
-.grid-scale-btn + .grid-scale-btn { margin-left: -2px; }
-.grid-scale-btn:hover {
-  background: var(--surface2);
-  color:      var(--ink);
-  z-index:    1;
-}
-.grid-scale-btn.active {
-  background: var(--color-lemon);
-  color:      #111111;
-  z-index:    2;
-  box-shadow: var(--sh-sm);
-}
+/* Grid scale toggles live in components.css */
 
 /* ── Cards ────────────────────────────────────────────────────── */
 .image-card {
@@ -498,7 +471,6 @@ section {
   transition:   transform 0.1s ease, box-shadow 0.1s ease;
 }
 .detail-tag-pill:hover {
-  transform:  translate(-1px, -1px);
   box-shadow: 3px 3px 0 var(--sh-color);
 }
 .detail-tag-remove {
@@ -512,6 +484,7 @@ section {
   color:       #111111;
   opacity:     0.5;
   padding:     0 1px;
+  height:      10px;
 }
 .detail-tag-pill:hover .detail-tag-remove { display: inline-flex; }
 .detail-tag-remove:hover { opacity: 1; }
@@ -583,26 +556,6 @@ section {
 #bulk-tag-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
 #bulk-tag-cancel,
 #bulk-tag-confirm  { padding: 7px 16px; font-size: 13px; font-weight: 500; }
-
-/* ── Toast notifications ──────────────────────────────────────── */
-#toast-container {
-  position:       fixed;
-  top:            16px;
-  right:          16px;
-  z-index:        400;
-  display:        flex;
-  flex-direction: column;
-  gap:            8px;
-  pointer-events: none;
-}
-.toast {
-  padding:    10px 16px;
-  font-size:  13px;
-  font-weight: 500;
-  animation:  toast-in .25s ease forwards;
-  max-width:  320px;
-}
-.toast.out { animation: toast-out .25s ease forwards; }
 
 /* ── Drag state ───────────────────────────────────────────────── */
 body.is-dragging * { cursor: grabbing !important; }
@@ -719,3 +672,63 @@ body.is-dragging [data-tag-id] { pointer-events: all !important; }
   margin-top:  8px;
   min-height:  1em;
 }
+
+/* ── Settings panel ───────────────────────────────────────────── */
+#settings-overlay {
+  position:   fixed;
+  inset:      0;
+  background: rgba(0,0,0,0.4);
+  z-index:    200;
+}
+#settings-panel {
+  position:   fixed;
+  top:        0; right: 0;
+  width:      320px;
+  max-width:  100vw;
+  height:     100vh;
+  background: var(--bg);
+  border-left: var(--bd);
+  box-shadow: var(--sh-lg);
+  z-index:    201;
+  overflow-y: auto;
+  display:    flex;
+  flex-direction: column;
+}
+#settings-header {
+  display:         flex;
+  align-items:     center;
+  justify-content: space-between;
+  padding:         14px 16px;
+  border-bottom:   var(--bd);
+  flex-shrink:     0;
+  position:        sticky;
+  top:             0;
+  background:      var(--bg);
+  z-index:         1;
+}
+#settings-header h2 { font-size: 15px; margin: 0; }
+#settings-header #settings-close { width: 32px; height: 32px; padding: 0; font-size: 18px; }
+#settings-content { padding: 16px; flex: 1; }
+.settings-section {
+  margin-bottom: 28px;
+}
+.settings-section h3 {
+  font-size:      11px;
+  font-weight:    700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color:          var(--ink-dim);
+  margin-bottom:  12px;
+}
+.settings-hint {
+  font-size:     12px;
+  color:         var(--ink-dim);
+  margin-bottom: 10px;
+  line-height:   1.5;
+}
+.settings-actions {
+  display: flex;
+  gap:     8px;
+  flex-wrap: wrap;
+}
+

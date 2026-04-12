@@ -86,9 +86,7 @@
           <button class="grid-scale-btn" data-cols="8" title="8 columns">XXS</button>
         </div>
         <button id="select-all-btn" class="icon-btn" title="Select all">☑</button>
-        <button id="export-btn" class="icon-btn" title="Export all data" onclick="exportData()">↓</button>
-        <label id="import-btn" class="icon-btn" title="Import data" style="cursor:pointer">↑<input type="file" accept=".gotcha,.zip" style="display:none" onchange="importData(this)"></label>
-        <button id="theme-toggle" class="icon-btn" title="Toggle theme" onclick="toggleTheme()">☾</button>
+        <button id="settings-btn" class="icon-btn" title="Settings">⚙</button>
       </div>
 
       <div id="active-filters"></div>
@@ -118,6 +116,29 @@
       <!-- Content built by JS -->
     </div>
   </div>
+
+  <!-- Settings panel -->
+  <div id="settings-overlay" style="display:none"></div>
+  <aside id="settings-panel" style="display:none">
+    <div id="settings-header">
+      <h2>Settings</h2>
+      <button id="settings-close" class="icon-btn">&times;</button>
+    </div>
+    <div id="settings-content">
+      <section class="settings-section">
+        <h3>Appearance</h3>
+        <button id="theme-toggle" class="ghost-btn" onclick="toggleTheme()">Toggle theme</button>
+      </section>
+      <section class="settings-section">
+        <h3>Data</h3>
+        <p class="settings-hint">Export a full backup of your Gots, or import a previously exported file.</p>
+        <div class="settings-actions">
+          <button class="ghost-btn" onclick="exportData()">↓ Export</button>
+          <label class="ghost-btn" style="cursor:pointer">↑ Import<input type="file" accept=".gotcha,.zip" style="display:none" onchange="importData(this)"></label>
+        </div>
+      </section>
+    </div>
+  </aside>
 
   <!-- Toast container -->
   <div id="toast-container"></div>

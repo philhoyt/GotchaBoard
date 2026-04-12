@@ -21,96 +21,34 @@ html, body {
   align-items:   center;
   gap:           16px;
   padding:       10px 16px;
-  background:    #0D0D0D;
+  background:    var(--bg);
   border-bottom: var(--bd);
   flex-shrink:   0;
 }
 
-[data-theme="dark"] #discover-header { background: var(--surface2); }
-
 #back-link {
-  color:           rgba(255,255,255,0.7);
+  color:           var(--ink);
   text-decoration: none;
   font-size:       12px;
   white-space:     nowrap;
   padding:         5px 10px;
-  border:          1.5px solid rgba(255,255,255,0.3);
+  border:          var(--bd-sm);
+  box-shadow:      var(--sh-sm);
+  background:      var(--surface);
   border-radius:   0;
-  transition:      color 0.1s, border-color 0.1s;
+  transition:      transform 0.1s, box-shadow 0.1s;
 }
-#back-link:hover { color: #fff; border-color: rgba(255,255,255,0.7); }
+#back-link:hover {
+  transform:  translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--sh-color);
+}
 
-#discover-header .logo { color: #fff; font-size: 15px; flex: 1; }
+#discover-header .logo { font-size: 15px; flex: 1; }
 
 #discover-header-actions {
   display:     flex;
   align-items: center;
   gap:         8px;
-}
-
-/* Override grid-scale buttons in dark header */
-#discover-header .grid-scale-btn {
-  background: rgba(255,255,255,0.08);
-  color:      rgba(255,255,255,0.6);
-  border:     1.5px solid rgba(255,255,255,0.25);
-}
-#discover-header .grid-scale-btn.active {
-  background: var(--color-lemon);
-  color:      #111111;
-  border-color: transparent;
-}
-#discover-header .grid-scale-btn:hover:not(.active) {
-  background: rgba(255,255,255,0.15);
-  color:      #fff;
-  transform:  none;
-}
-
-/* Override buttons in dark header */
-#discover-header .primary-btn,
-#discover-header .ghost-btn {
-  font-size: 12px;
-  padding:   5px 12px;
-}
-#discover-header .ghost-btn {
-  background:   rgba(255,255,255,0.08);
-  color:        rgba(255,255,255,0.7);
-  border-color: rgba(255,255,255,0.25);
-  box-shadow:   none;
-}
-#discover-header .ghost-btn:hover {
-  background: rgba(255,255,255,0.15);
-  color:      #fff;
-  transform:  none;
-  box-shadow: none;
-}
-
-/* ── Taste profile banner ─────────────────────────────────────── */
-#profile-banner {
-  background:    var(--surface);
-  border-bottom: var(--bd);
-  flex-shrink:   0;
-}
-#profile-banner-inner {
-  display:     flex;
-  align-items: center;
-  gap:         16px;
-  padding:     8px 16px;
-  max-width:   100%;
-}
-#profile-banner-text {
-  flex:        1;
-  font-size:   12px;
-  color:       var(--ink-dim);
-  font-style:  italic;
-  overflow:    hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-#profile-banner .ghost-btn {
-  font-size:  11px;
-  padding:    3px 8px;
-  white-space: nowrap;
-  flex-shrink: 0;
 }
 
 /* ── Feed grid ────────────────────────────────────────────────── */
@@ -317,6 +255,12 @@ html, body {
   line-height: 1.5;
 }
 
+.settings-actions {
+  display:   flex;
+  gap:       8px;
+  flex-wrap: wrap;
+}
+
 .settings-field {
   margin-bottom: 10px;
 }
@@ -391,38 +335,6 @@ html, body {
   border-radius: 0;
 }
 .source-delete-btn:hover { color: var(--color-coral); }
-
-/* Taste profile display */
-#taste-profile-text {
-  font-size:     12px;
-  line-height:   1.6;
-  color:         var(--ink-dim);
-  font-style:    italic;
-  border:        var(--bd-sm);
-  background:    var(--surface);
-  padding:       10px 12px;
-  margin-bottom: 10px;
-}
-.profile-queries {
-  margin-bottom: 12px;
-}
-.profile-queries-label {
-  font-size:     10px;
-  font-weight:   700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color:         var(--ink-dim);
-  margin-bottom: 6px;
-}
-.profile-query-pill {
-  display:     inline-block;
-  font-size:   10px;
-  padding:     2px 7px;
-  border:      var(--bd-sm);
-  background:  var(--surface2);
-  color:       var(--ink-dim);
-  margin:      0 4px 4px 0;
-}
 
 /* Stats table */
 .stats-table {
@@ -579,59 +491,4 @@ html, body {
   border-top: var(--bd);
 }
 
-/* ── Buttons (discover page) ──────────────────────────────────── */
-.primary-btn {
-  padding:     7px 14px;
-  background:  var(--color-lemon);
-  color:       #111111;
-  border:      var(--bd);
-  box-shadow:  var(--sh);
-  font-size:   13px;
-  font-weight: 500;
-  cursor:      pointer;
-  font-family: inherit;
-  border-radius: 0;
-  transition:  transform 0.1s ease, box-shadow 0.1s ease;
-}
-.primary-btn:hover { transform: translate(-1px,-1px); box-shadow: 4px 4px 0 var(--sh-color); }
-.primary-btn:active { transform: translate(1px,1px); box-shadow: 1px 1px 0 var(--sh-color); }
-.primary-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: var(--sh); }
-
-.ghost-btn {
-  padding:     7px 14px;
-  background:  var(--surface);
-  color:       var(--ink-dim);
-  border:      var(--bd);
-  box-shadow:  var(--sh-sm);
-  font-size:   13px;
-  cursor:      pointer;
-  font-family: inherit;
-  border-radius: 0;
-  transition:  transform 0.1s ease, box-shadow 0.1s ease;
-}
-.ghost-btn:hover { transform: translate(-1px,-1px); box-shadow: 3px 3px 0 var(--sh-color); color: var(--ink); }
-
-/* ── Toast ────────────────────────────────────────────────────── */
-#toast-container {
-  position:       fixed;
-  top:            16px;
-  right:          16px;
-  z-index:        400;
-  display:        flex;
-  flex-direction: column;
-  gap:            8px;
-  pointer-events: none;
-}
-.toast {
-  background:  #0D0D0D;
-  color:       #FFFFFF;
-  border:      var(--bd);
-  box-shadow:  var(--sh);
-  padding:     10px 16px;
-  font-size:   13px;
-  font-weight: 500;
-  animation:   toast-in .25s ease forwards;
-  max-width:   320px;
-}
-.toast.out { animation: toast-out .25s ease forwards; }
-[data-theme="dark"] .toast { background: var(--color-lemon); color: #111111; border-color: var(--ink); }
+/* Buttons and toast are defined in components.css */

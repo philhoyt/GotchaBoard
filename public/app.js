@@ -417,12 +417,7 @@ function buildDetailHTML(image) {
         <input type="text" class="detail-add-tag-input" id="detail-add-tag" placeholder="+ add tag" />
       </div>
     </div>
-    <div class="detail-field">
-      <div class="detail-label">Notes</div>
-      <textarea id="detail-notes" class="detail-textarea" placeholder="Add notes...">${esc(image.notes || '')}</textarea>
-    </div>
     <div class="detail-actions">
-      <button class="btn btn-primary" id="detail-save">Save Changes</button>
       <button class="btn btn-ghost" id="detail-open-source">Open Source</button>
       <button class="btn btn-danger" id="detail-delete">Delete</button>
     </div>
@@ -435,8 +430,18 @@ function getDetailTags() {
     .map(el => el.dataset.tag);
 }
 
+// ── Detail panel: auto-save tags to server ────────────────────────
+async function saveDetailTags(imageId) {
+  try {
+    await apiFetch(`/images/${imageId}`, { method: 'PATCH', body: JSON.stringify({ tags: getDetailTags() }) });
+    await Promise.all([loadImages(), loadTags()]);
+  } catch (err) {
+    toast('Failed to save tags');
+  }
+}
+
 // ── Detail panel: add a tag pill dynamically ──────────────────────
-function addDetailTagPill(name) {
+function addDetailTagPill(name, imageId) {
   const wrap  = document.getElementById('detail-tags-wrap');
   const input = document.getElementById('detail-add-tag');
   const t     = state.tags.find(t => t.name === name);
@@ -447,15 +452,21 @@ function addDetailTagPill(name) {
   pill.dataset.tag = name;
   if (color) pill.style.background = color;
   pill.innerHTML = `${esc(name)}<button class="detail-tag-remove" title="Remove tag">&times;</button>`;
-  pill.querySelector('.detail-tag-remove').addEventListener('click', () => pill.remove());
+  pill.querySelector('.detail-tag-remove').addEventListener('click', () => {
+    pill.remove();
+    saveDetailTags(imageId);
+  });
 
   wrap.insertBefore(pill, input);
 }
 
 function bindDetailEvents(image) {
-  // Remove tag — click × on any pill
+  // Remove tag — click × on any initially-rendered pill
   document.querySelectorAll('.detail-tag-remove').forEach(btn => {
-    btn.addEventListener('click', () => btn.closest('.detail-tag-pill').remove());
+    btn.addEventListener('click', () => {
+      btn.closest('.detail-tag-pill').remove();
+      saveDetailTags(image.id);
+    });
   });
 
   // Add tag — type in the inline input, press Enter
@@ -465,23 +476,12 @@ function bindDetailEvents(image) {
       e.preventDefault();
       const val = addInput.value.trim();
       if (!val) return;
-      // Prevent duplicate
       if (getDetailTags().includes(val)) { addInput.value = ''; return; }
-      addDetailTagPill(val);
+      addDetailTagPill(val, image.id);
       addInput.value = '';
+      saveDetailTags(image.id);
     }
     if (e.key === 'Escape') addInput.blur();
-  });
-
-  // Save — read tags from pills, not a text input
-  document.getElementById('detail-save').addEventListener('click', async () => {
-    const tags  = getDetailTags();
-    const notes = document.getElementById('detail-notes').value.trim() || null;
-    try {
-      await apiFetch(`/images/${image.id}`, { method: 'PATCH', body: JSON.stringify({ tags, notes }) });
-      closeDetail();
-      await Promise.all([loadImages(), loadTags()]);
-    } catch (err) { alert(`Failed to save: ${err.message}`); }
   });
 
   document.getElementById('detail-open-source').addEventListener('click', () => window.open(image.source_url, '_blank', 'noopener'));
@@ -865,10 +865,16 @@ function bindEventListeners() {
   // Add Got button
   document.getElementById('add-got-btn').addEventListener('click', openAddGotModal);
 
+  // Settings panel
+  document.getElementById('settings-btn').addEventListener('click', openSettings);
+  document.getElementById('settings-close').addEventListener('click', closeSettings);
+  document.getElementById('settings-overlay').addEventListener('click', closeSettings);
+
   // Detail close
   document.getElementById('detail-close').addEventListener('click', closeDetail);
   document.getElementById('detail-overlay').addEventListener('click', closeDetail);
   document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && document.getElementById('settings-panel').style.display !== 'none') { closeSettings(); return; }
     if (e.key === 'Escape' && document.getElementById('add-got-modal').style.display !== 'none') { closeAddGotModal(); return; }
     if (e.key === 'Escape' && state.detailImageId) closeDetail();
     if (e.key === 'Escape') selection.clear();
@@ -876,13 +882,22 @@ function bindEventListeners() {
 }
 
 // ── Init ───────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-  // Sync theme toggle icon with current theme
+function openSettings() {
+  document.getElementById('settings-panel').style.display  = '';
+  document.getElementById('settings-overlay').style.display = '';
+  // Sync theme toggle label to current theme
   const themeBtn = document.getElementById('theme-toggle');
-  if (themeBtn) {
-    themeBtn.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀' : '☾';
+  if (themeBtn && themeBtn.classList.contains('ghost-btn')) {
+    themeBtn.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀ Light mode' : '☾ Dark mode';
   }
+}
 
+function closeSettings() {
+  document.getElementById('settings-panel').style.display  = 'none';
+  document.getElementById('settings-overlay').style.display = 'none';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
   bindEventListeners();
 
   const savedCols = localStorage.getItem('gotcha-grid-cols');

@@ -106,7 +106,7 @@ function showState(state) {
 
 // ── Save candidate ─────────────────────────────────────────────────
 async function saveCandidate(candidate) {
-  // Open detail-panel-style form to add tags/notes before saving
+  // Open detail-panel-style form to add tags before saving
   openSaveDialog(candidate);
 }
 
@@ -148,10 +148,6 @@ function openSaveDialog(candidate) {
         <input type="text" class="detail-add-tag-input" id="save-dialog-tag-input" placeholder="+ add tag">
       </div>
     </div>
-    <div class="detail-field">
-      <div class="detail-label">Notes</div>
-      <textarea id="save-dialog-notes" class="detail-textarea" placeholder="Add notes…"></textarea>
-    </div>
     <div id="save-dialog-error" style="color:var(--color-coral);font-size:12px;min-height:1em;margin-bottom:8px;"></div>
     <div class="detail-actions">
       <button class="primary-btn" id="save-dialog-confirm">Save Got</button>
@@ -169,8 +165,7 @@ function openSaveDialog(candidate) {
 
   document.getElementById('save-dialog-confirm').addEventListener('click', async () => {
     const btn   = document.getElementById('save-dialog-confirm');
-    const tags  = getDialogTags();
-    const notes = document.getElementById('save-dialog-notes').value.trim() || null;
+    const tags = getDialogTags();
 
     btn.disabled   = true;
     btn.textContent = 'Saving…';
@@ -178,7 +173,7 @@ function openSaveDialog(candidate) {
     try {
       await apiFetch(`/discover/${candidate.id}/save`, {
         method: 'POST',
-        body: JSON.stringify({ tags, notes }),
+        body: JSON.stringify({ tags }),
       });
       closeSaveDialog();
       // Remove card from feed
@@ -311,6 +306,11 @@ async function loadStats() {
 function openSettings() {
   document.getElementById('settings-panel').style.display  = '';
   document.getElementById('settings-overlay').style.display = '';
+  // Sync theme toggle label to current theme
+  const themeBtn = document.getElementById('theme-toggle');
+  if (themeBtn && themeBtn.classList.contains('ghost-btn')) {
+    themeBtn.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀ Light mode' : '☾ Dark mode';
+  }
   loadSources();
   loadStats();
 }
@@ -350,12 +350,6 @@ function wireDiscoverButton() {
 
 // ── Init ───────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
-  // Theme icon
-  const themeBtn = document.getElementById('theme-toggle');
-  if (themeBtn) {
-    themeBtn.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀' : '☾';
-  }
-
   // Grid density
   const savedCols = localStorage.getItem('gotcha-grid-cols');
   if (savedCols) setGridCols(Number(savedCols));
