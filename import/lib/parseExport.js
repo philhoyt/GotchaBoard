@@ -95,13 +95,26 @@ function parseCsvBuffer(buf) {
 //   <br>
 //   <br>
 
+function decodeEntities(str) {
+  return str
+    .replace(/&amp;/g,  '&')
+    .replace(/&lt;/g,   '<')
+    .replace(/&gt;/g,   '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g,  "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&#(\d+);/g,      (_, n) => String.fromCharCode(Number(n)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCharCode(parseInt(h, 16)));
+}
+
 function getField(block, name) {
   // Match "Field Name: value <br>" — value may contain HTML (e.g. Canonical Link)
   const re = new RegExp(name.replace(/\s/g, '\\s+') + ':\\s*(.*?)(?=\\s*<br>|$)', 'i');
   const m = block.match(re);
   if (!m) return null;
-  // Strip any HTML tags from value, then trim
-  let val = m[1].replace(/<[^>]+>/g, '').trim();
+  // Strip HTML tags, decode entities, then trim
+  let val = decodeEntities(m[1].replace(/<[^>]+>/g, '')).trim();
   return val.toLowerCase() === 'no data' || val === '' ? null : val;
 }
 
