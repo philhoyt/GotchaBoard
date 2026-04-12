@@ -94,6 +94,7 @@ section {
   transition:   all .12s;
 }
 .section-header button:hover { color: var(--ink); background: var(--surface2); }
+.section-header-actions { display: flex; gap: 4px; }
 
 /* New tag / collection inline forms */
 #new-tag-form, #new-collection-form { padding: 0 4px 8px; }

@@ -105,7 +105,10 @@ async function loadImages(append = false) {
 
   const seq = ++_loadSeq;
 
-  if (!append) state.page = 0;
+  if (!append) {
+    state.page = 0;
+    document.getElementById('grid-scroll').scrollTop = 0;
+  }
 
   try {
     const base = buildImageQuery();
@@ -113,7 +116,7 @@ async function loadImages(append = false) {
     params.set('limit',  state.pageSize);
     params.set('offset', state.page);
     const data = await apiFetch('/images?' + params.toString());
-    if (seq !== _loadSeq) return;   // a newer call superseded this one
+    if (seq !== _loadSeq) return;
 
     const { images, total } = data;
     if (state.sortOrder === 'saved_at_asc') images.reverse();
@@ -150,6 +153,7 @@ let msnry          = null;
 let currentCardWidth = DEFAULT_CARD_WIDTH;
 let layoutTimer    = null;
 let _loadSeq       = 0;   // monotonic counter — stale loadImages() responses are discarded
+let _renderingGrid = false; // true while renderGrid/appendToGrid is painting — blocks scroll loading
 let _detailSuggest      = null;
 let _addGotSuggest      = null;
 let _collectionModal    = null;
@@ -186,6 +190,8 @@ function updateCardWidth() {
 }
 
 function renderGrid() {
+  _renderingGrid = true;
+
   const grid  = document.getElementById('image-grid');
   const empty = document.getElementById('empty-state');
 
@@ -193,6 +199,7 @@ function renderGrid() {
     grid.style.display = 'none'; grid.innerHTML = '';
     empty.classList.add('visible');
     if (msnry) { msnry.destroy(); msnry = null; }
+    _renderingGrid = false;
     return;
   }
 
@@ -211,10 +218,10 @@ function renderGrid() {
   state.images.forEach((image, idx) => grid.appendChild(buildCard(image, idx)));
 
   msnry = initMasonry(grid, '.image-card');
-  // Force a layout pass after the browser has had a chance to paint the skeletons.
-  // This catches any measurement drift without waiting for ALL images to load
-  // (which is slow for large grids with lazy-loaded images).
-  requestAnimationFrame(() => { if (msnry) msnry.layout(); });
+  requestAnimationFrame(() => {
+    if (msnry) msnry.layout();
+    _renderingGrid = false;
+  });
 
   syncSelectionUI();
   renderActiveFilters();
@@ -224,12 +231,17 @@ function appendToGrid(images) {
   const grid = document.getElementById('image-grid');
   if (!msnry || !images.length) return;
 
+  _renderingGrid = true;
+
   const startIdx = state.images.length - images.length;
   const newCards = images.map((image, i) => buildCard(image, startIdx + i));
 
   newCards.forEach(card => grid.appendChild(card));
   msnry.appended(newCards);
-  requestAnimationFrame(() => { if (msnry) msnry.layout(); });
+  requestAnimationFrame(() => {
+    if (msnry) msnry.layout();
+    _renderingGrid = false;
+  });
 }
 
 function buildCard(image, idx) {
@@ -277,15 +289,14 @@ function buildCard(image, idx) {
     img.addEventListener('load', () => {
       card.querySelector('.card-skeleton')?.remove();
       img.classList.add('img-loaded');
-      // Only re-layout when dimensions were unknown (skeleton height was estimated).
-      // When dimensions are stored the skeleton is already the right height, so
-      // the card height doesn't change and Masonry doesn't need to reflow.
-      if (!knownDimensions) scheduleLayout();
+      // Always re-layout — skeleton height and rendered img height can differ by
+      // a pixel due to rounding, and that drift accumulates across many cards.
+      scheduleLayout();
     });
     img.addEventListener('error', () => {
       const sk = card.querySelector('.card-skeleton');
       if (sk) { sk.style.animation = 'none'; sk.style.background = 'var(--surface)'; }
-      if (!knownDimensions) scheduleLayout();
+      scheduleLayout();
     });
   }
 
@@ -372,7 +383,8 @@ function buildTagItem(tag, isChild) {
     e.stopPropagation();
     e.preventDefault();
     if (!state.checkedTags) state.checkedTags = [];
-    if (state.checkedTags.includes(tag.id)) {
+    const wasChecked = state.checkedTags.includes(tag.id);
+    if (wasChecked) {
       state.checkedTags = state.checkedTags.filter(id => id !== tag.id);
     } else {
       state.checkedTags = [...state.checkedTags, tag.id];
@@ -1232,14 +1244,15 @@ function bindEventListeners() {
     loadImages();
   });
 
-  document.getElementById('grid-scroll').addEventListener('scroll', () => {
+  document.getElementById('grid-scroll').addEventListener('scroll', debounce(() => {
+    if (_renderingGrid) return;
     if (state.loading) return;
     if (state.images.length >= state.totalImages) return;
     const el = document.getElementById('grid-scroll');
     if (el.scrollHeight - el.scrollTop - el.clientHeight < 400) {
       loadImages(true);
     }
-  });
+  }, 100));
 
   document.getElementById('search-input').addEventListener('input', debounce(e => {
     state.searchQuery = e.target.value.trim();
