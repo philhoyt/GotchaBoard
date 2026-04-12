@@ -620,6 +620,8 @@ async function saveDetailTags(imageId) {
 
     // If a filter is active and this image no longer matches it, sweep it out
     if (!imageMatchesCurrentFilter(tags)) {
+      const scrollEl = document.getElementById('grid-scroll');
+      const savedScroll = scrollEl.scrollTop;
       closeDetail();
       const card = document.querySelector(`.image-card[data-id="${imageId}"]`);
       if (card && msnry) {
@@ -630,6 +632,7 @@ async function saveDetailTags(imageId) {
       state.images = state.images.filter(i => i.id !== imageId);
       state.totalImages = Math.max(0, state.totalImages - 1);
       updateCounts();
+      scrollEl.scrollTop = savedScroll;
     }
   } catch (err) {
     toast('Failed to save tags');
@@ -738,10 +741,11 @@ function bindDetailEvents(image) {
 
   document.getElementById('detail-delete').addEventListener('click', async () => {
     if (!confirm('Delete this Got? This cannot be undone.')) return;
+    const scrollEl = document.getElementById('grid-scroll');
+    const savedScroll = scrollEl.scrollTop;
     try {
       await apiFetch(`/images/${image.id}`, { method: 'DELETE' });
       closeDetail();
-      // Remove card in-place — no scroll reset
       const card = document.querySelector(`.image-card[data-id="${image.id}"]`);
       if (card && msnry) {
         await sweep(card, 0).finished;
@@ -753,6 +757,7 @@ function bindDetailEvents(image) {
       updateCounts();
       await loadTags();
     } catch (err) { alert(`Failed to delete: ${err.message}`); }
+    finally { scrollEl.scrollTop = savedScroll; }
   });
 }
 
