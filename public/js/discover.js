@@ -68,6 +68,7 @@ function buildCard(candidate) {
     </div>
   `;
 
+  card.querySelector('.discover-card-img').addEventListener('click', () => saveCandidate(candidate));
   card.querySelector('.discover-save-btn').addEventListener('click', () => saveCandidate(candidate));
   card.querySelector('.discover-dismiss-btn').addEventListener('click', () => dismissCandidate(candidate.id, card));
 
