@@ -227,19 +227,24 @@ async function crawlRssFeed(source) {
   let xml;
   try { xml = await fetchText(source.url); } catch (_) { return; }
 
-  // Extract item links from RSS/Atom
+  // Extract item links from RSS/Atom — skip channel-level homepage links (pathname "/")
   const linkRe = /<link>([^<]+)<\/link>|<link[^>]+href=["']([^"']+)["']/g;
   const encRe  = /<enclosure[^>]+url=["']([^"']+)["'][^>]+type=["']image\/[^"']+["']/gi;
-  const mediaRe = /<media:content[^>]+url=["']([^"']+)["']/gi;
+  // Match both media:content and media:thumbnail
+  const mediaRe = /<media:(?:content|thumbnail)[^>]+url=["']([^"']+)["']/gi;
 
   const itemLinks = [];
   let m;
   while ((m = linkRe.exec(xml)) !== null) {
     const url = (m[1] || m[2] || '').trim();
-    if (url.startsWith('http')) itemLinks.push(url);
+    if (!url.startsWith('http')) continue;
+    try {
+      // Skip bare homepage links — those are channel-level, not article links
+      if (new URL(url).pathname.length > 1) itemLinks.push(url);
+    } catch (_) {}
   }
 
-  // Direct image enclosures and media:content tags
+  // Direct image enclosures and media:content/thumbnail tags
   while ((m = encRe.exec(xml)) !== null) {
     queueCandidate({ image_url: m[1], page_url: source.url, source_type: 'rss', source_id: source.id });
   }
@@ -248,8 +253,9 @@ async function crawlRssFeed(source) {
   }
 
   // Images embedded in <description> or <content:encoded> HTML (e.g. Core77)
-  const descRe    = /<(?:description|content:encoded)>([\s\S]*?)<\/(?:description|content:encoded)>/gi;
-  const embImgRe  = /src=["']([^"']+\.(?:jpg|jpeg|png|webp|gif|avif))["']/gi;
+  const descRe   = /<(?:description|content:encoded)>([\s\S]*?)<\/(?:description|content:encoded)>/gi;
+  // Allow query params after the extension (e.g. WordPress ?w=400 resizing)
+  const embImgRe = /src=["']([^"']*\.(?:jpg|jpeg|png|webp|gif|avif)[^"']*)["']/gi;
   while ((m = descRe.exec(xml)) !== null) {
     const decoded = m[1].replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
     let img;
