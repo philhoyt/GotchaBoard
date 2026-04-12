@@ -113,6 +113,8 @@ function getCanonicalLink(block) {
 
 function parseHtmlPinBlocks(html) {
   const pins = [];
+  let videoSkipped = 0;
+  let deadSkipped  = 0;
 
   // Pin header lines look like:
   //   (whitespace)<a href="https://www.pinterest.com/pin/ID/">URL</a>(whitespace)
@@ -140,10 +142,20 @@ function parseHtmlPinBlocks(html) {
       note:       getField(block, 'Details'),
       source_url: getCanonicalLink(block) || getField(block, 'Canonical Link'),
       image_hash,
+      alt_text:   getField(block, 'Alt Text'),
+      is_video:   getField(block, 'Is Video') === 'Yes',
+      alive:      getField(block, 'Alive') !== 'No',
+      created_at: getField(block, 'Created at'),
     };
 
-    if (pin.board_name) pins.push(pin);
+    if (!pin.board_name)  continue;
+    if (pin.is_video)     { videoSkipped++; continue; }
+    if (!pin.alive)       { deadSkipped++;  continue; }
+    pins.push(pin);
   }
+
+  if (videoSkipped) process.stderr.write(`[parseExport] Skipped ${videoSkipped} video pins\n`);
+  if (deadSkipped)  process.stderr.write(`[parseExport] Skipped ${deadSkipped} dead pins\n`);
 
   return pins;
 }

@@ -409,6 +409,7 @@ function buildDetailHTML(image) {
     </div>
     ${image.page_title ? `<div class="detail-field"><div class="detail-label">Page Title</div><div class="detail-value">${esc(image.page_title)}</div></div>` : ''}
     ${image.page_url ? `<div class="detail-field"><div class="detail-label">Page URL</div><div class="detail-value-url"><a href="${esc(image.page_url)}" target="_blank" rel="noopener" title="${esc(image.page_url)}">${esc(image.page_url)}</a></div></div>` : ''}
+    ${image.pin_url ? `<div class="detail-field"><div class="detail-label">Pinterest Pin</div><div class="detail-value-url"><a href="${esc(image.pin_url)}" target="_blank" rel="noopener" title="${esc(image.pin_url)}">${esc(image.pin_url)}</a></div></div>` : ''}
     <div class="detail-field"><div class="detail-label">Saved</div><div class="detail-value">${esc(saved)}</div></div>
     <div class="detail-field">
       <div class="detail-label">Tags</div>
@@ -870,6 +871,34 @@ function bindEventListeners() {
   document.getElementById('settings-close').addEventListener('click', closeSettings);
   document.getElementById('settings-overlay').addEventListener('click', closeSettings);
 
+  // Delete all Gots
+  document.getElementById('delete-all-btn').addEventListener('click', () => {
+    document.getElementById('delete-all-initial').style.display = 'none';
+    document.getElementById('delete-all-confirm').style.display = '';
+  });
+  document.getElementById('delete-all-cancel-btn').addEventListener('click', () => {
+    document.getElementById('delete-all-confirm').style.display = 'none';
+    document.getElementById('delete-all-initial').style.display = '';
+  });
+  document.getElementById('delete-all-confirm-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('delete-all-confirm-btn');
+    btn.disabled = true;
+    btn.textContent = 'Deleting…';
+    try {
+      const res = await apiFetch('/images', { method: 'DELETE' });
+      closeSettings();
+      document.getElementById('delete-all-confirm').style.display = 'none';
+      document.getElementById('delete-all-initial').style.display = '';
+      await loadAll();
+      toast(`Deleted ${res.deleted.toLocaleString()} Got${res.deleted !== 1 ? 's' : ''}`);
+    } catch (err) {
+      toast('Delete failed: ' + err.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Yes, delete all';
+    }
+  });
+
   // Detail close
   document.getElementById('detail-close').addEventListener('click', closeDetail);
   document.getElementById('detail-overlay').addEventListener('click', closeDetail);
@@ -895,6 +924,9 @@ function openSettings() {
 function closeSettings() {
   document.getElementById('settings-panel').style.display  = 'none';
   document.getElementById('settings-overlay').style.display = 'none';
+  // Reset delete confirmation state
+  document.getElementById('delete-all-confirm').style.display = 'none';
+  document.getElementById('delete-all-initial').style.display = '';
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -928,13 +960,13 @@ window.importData = async function (input) {
   form.append('file', file);
 
   try {
-    showToast('Importing…');
+    toast('Importing…');
     const res = await fetch(`${API}/transfer/import`, { method: 'POST', body: form });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Import failed');
-    showToast(data.message || 'Import complete — reloading…');
+    toast(data.message || 'Import complete — reloading…');
     setTimeout(() => window.location.reload(), 1500);
   } catch (err) {
-    showToast('Import failed: ' + err.message);
+    toast('Import failed: ' + err.message);
   }
 };

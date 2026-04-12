@@ -45,6 +45,15 @@ function expandPath(p) {
   return path.resolve(p);
 }
 
+// ── Date formatting ────────────────────────────────────────────────
+// Pinterest SAR export dates are freeform text (e.g. "2021-03-15 10:30:00 UTC").
+// Try to parse them into ISO 8601; fall back to storing the raw string.
+function formatDate(raw) {
+  if (!raw) return null;
+  const d = new Date(raw);
+  return isNaN(d.getTime()) ? raw : d.toISOString();
+}
+
 // ── Error classification ───────────────────────────────────────────
 function classifyError(err) {
   // Puppeteer TimeoutError
@@ -69,15 +78,18 @@ function sleep(ms) {
 // ── Per-pin processing ─────────────────────────────────────────────
 async function processPin(page, pin, args, stats, bar) {
   try {
-    // Duplicate check against existing images (by source_url from CSV)
-    if (pin.source_url) {
-      const dup = db.prepare('SELECT 1 FROM images WHERE source_url = ? LIMIT 1').get(pin.source_url);
-      if (dup) {
-        db.prepare("UPDATE import_queue SET status = 'skipped' WHERE id = ?").run(pin.id);
-        stats.skipped++;
-        bar.increment({ failed: stats.failed });
-        return;
-      }
+    // Duplicate check — prefer pin_url (stable Pinterest ID), fall back to source_url
+    const dupByPin = pin.pin_url
+      ? db.prepare('SELECT 1 FROM images WHERE pin_url = ? LIMIT 1').get(pin.pin_url)
+      : null;
+    const dupBySrc = (!dupByPin && pin.source_url)
+      ? db.prepare('SELECT 1 FROM images WHERE source_url = ? LIMIT 1').get(pin.source_url)
+      : null;
+    if (dupByPin || dupBySrc) {
+      db.prepare("UPDATE import_queue SET status = 'skipped' WHERE id = ?").run(pin.id);
+      stats.skipped++;
+      bar.increment({ failed: stats.failed });
+      return;
     }
 
     // Also skip if no pin URL (can't resolve without it)
@@ -96,17 +108,21 @@ async function processPin(page, pin, args, stats, bar) {
 
     // Save to images table, wire up tag, mark done — in a transaction
     const savePin = db.transaction(() => {
-      const imageId = uuidv4();
+      const imageId   = uuidv4();
+      const savedAt   = formatDate(pin.created_at) || new Date().toISOString();
       db.prepare(`
-        INSERT INTO images (id, filename, thumbnail, source_url, page_title, page_url)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO images (id, filename, thumbnail, source_url, page_title, page_url, pin_url, alt_text, saved_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         imageId,
         filename,
         thumbnail,
-        imageUrl,        // source_url = the actual image URL
+        imageUrl,              // source_url = the resolved CDN image URL
         pin.title || null,
-        pin.pin_url      // page_url = the Pinterest pin page
+        pin.source_url || null, // page_url = canonical article URL from the pin
+        pin.pin_url || null,    // pin_url  = pinterest.com/pin/… permalink
+        pin.alt_text || null,
+        savedAt
       );
       if (pin.tag_id) {
         db.prepare('INSERT OR IGNORE INTO image_tags (image_id, tag_id) VALUES (?, ?)')

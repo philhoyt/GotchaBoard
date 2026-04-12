@@ -19,6 +19,7 @@ const bulkRouter             = require('./routes/bulk');
 const smartCollectionsRouter = require('./routes/smartCollections');
 const discoverRouter         = require('./routes/discover');
 const transferRouter         = require('./routes/transfer');
+const importPinterestRouter  = require('./routes/importPinterest');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -46,6 +47,7 @@ app.use('/api/gots/bulk',         bulkRouter);
 app.use('/api/smart-collections', smartCollectionsRouter);
 app.use('/api/discover',          discoverRouter);
 app.use('/api/transfer',          transferRouter);
+app.use('/api/import/pinterest',  importPinterestRouter);
 
 const server = app.listen(PORT, () => {
   console.log(`GotchaBoard running at http://localhost:${PORT}`);

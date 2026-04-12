@@ -169,7 +169,12 @@ function runMigrations() {
     console.log('[db] Board migration complete.');
   }
 
-  // 3. Drop board_id from images if it still exists (SQLite 3.35+)
+  // 3. Add import-enriched columns to images if upgrading from earlier schema
+  const imageCols2 = db.prepare('PRAGMA table_info(images)').all().map(c => c.name);
+  if (!imageCols2.includes('pin_url'))  db.prepare('ALTER TABLE images ADD COLUMN pin_url TEXT').run();
+  if (!imageCols2.includes('alt_text')) db.prepare('ALTER TABLE images ADD COLUMN alt_text TEXT').run();
+
+  // 4. Drop board_id from images if it still exists (SQLite 3.35+)
   const imageCols = db.prepare('PRAGMA table_info(images)').all().map(c => c.name);
   if (imageCols.includes('board_id')) {
     // Drop any index that references board_id before dropping the column

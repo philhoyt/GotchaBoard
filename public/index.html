@@ -65,6 +65,7 @@
           <p>Drop onto a tag above</p>
         </div>
       </section>
+
     </aside>
 
     <!-- Main -->
@@ -131,14 +132,102 @@
       </section>
       <section class="settings-section">
         <h3>Data</h3>
-        <p class="settings-hint">Export a full backup of your Gots, or import a previously exported file.</p>
+        <p class="settings-hint">Export a full backup of your Gots, or restore a previously exported file.</p>
         <div class="settings-actions">
-          <button class="ghost-btn" onclick="exportData()">↓ Export</button>
-          <label class="ghost-btn" style="cursor:pointer">↑ Import<input type="file" accept=".gotcha,.zip" style="display:none" onchange="importData(this)"></label>
+          <button class="ghost-btn" onclick="exportData()">↓ Backup</button>
+          <label class="ghost-btn" style="cursor:pointer">↑ Restore<input type="file" accept=".gotcha" style="display:none" onchange="importData(this)"></label>
+        </div>
+      </section>
+      <section class="settings-section">
+        <h3>Pinterest</h3>
+        <p class="settings-hint">Import pins from a Pinterest SAR export ZIP.</p>
+        <div class="settings-actions">
+          <button id="import-btn" class="ghost-btn">↑ Import Pinterest</button>
+        </div>
+      </section>
+      <section class="settings-section">
+        <h3>Danger Zone</h3>
+        <p class="settings-hint">Permanently delete all Gots and their files. Tags are kept.</p>
+        <div id="delete-all-confirm" style="display:none" class="settings-actions">
+          <span style="font-size:12px;color:var(--ink-dim);align-self:center">Are you sure?</span>
+          <button class="danger-btn" id="delete-all-confirm-btn">Yes, delete all</button>
+          <button class="ghost-btn"  id="delete-all-cancel-btn">Cancel</button>
+        </div>
+        <div id="delete-all-initial" class="settings-actions">
+          <button class="danger-btn" id="delete-all-btn">Delete all Gots</button>
         </div>
       </section>
     </div>
   </aside>
+
+  <!-- Import modal -->
+  <div id="import-modal" style="display:none">
+    <div id="import-backdrop"></div>
+    <div id="import-dialog">
+      <div id="import-dialog-header">
+        <h2>Import from Pinterest</h2>
+        <button id="import-close" class="icon-btn">&times;</button>
+      </div>
+
+      <!-- State: upload -->
+      <div id="import-upload-state">
+        <div id="import-dropzone">
+          <span class="import-dropzone-icon">↑</span>
+          <span class="import-dropzone-label">Drop your Pinterest export ZIP here, or click to browse</span>
+          <span class="import-dropzone-hint">Supports: .zip (Pinterest SAR export)</span>
+        </div>
+        <input type="file" id="import-file-input" accept=".zip,.html" style="display:none">
+        <p id="import-dropzone-error" class="import-error"></p>
+      </div>
+
+      <!-- State: preview -->
+      <div id="import-preview-state" style="display:none">
+        <p class="import-preview-summary">
+          Found <strong id="import-preview-total">0</strong> pins across
+          <strong id="import-preview-boards">0</strong> boards.
+          Each board will become a tag.
+        </p>
+        <div id="import-boards-list"></div>
+        <div class="import-dialog-actions">
+          <button id="import-cancel-preview" class="ghost-btn">Cancel</button>
+          <button id="import-start-btn" class="primary-btn">Start Import</button>
+        </div>
+      </div>
+
+      <!-- State: progress -->
+      <div id="import-progress-state" style="display:none">
+        <div id="import-progress-track">
+          <div id="import-progress-bar-fill"></div>
+        </div>
+        <p id="import-progress-label">0 / 0</p>
+        <div class="import-stats">
+          <div class="import-stat-row"><span>Imported</span><span id="import-stat-done">0</span></div>
+          <div class="import-stat-row"><span>Skipped (duplicates)</span><span id="import-stat-skipped">0</span></div>
+          <div class="import-stat-row"><span>Failed</span><span id="import-stat-failed">0</span></div>
+          <div class="import-stat-row" id="import-stat-nohash-row" style="display:none">
+            <span>No image data</span><span id="import-stat-nohash">0</span>
+          </div>
+        </div>
+        <p id="import-progress-error" class="import-error"></p>
+        <div class="import-dialog-actions">
+          <button id="import-cancel-progress" class="ghost-btn">Cancel</button>
+        </div>
+      </div>
+
+      <!-- State: done -->
+      <div id="import-done-state" style="display:none">
+        <h3 id="import-done-heading">Import complete</h3>
+        <div class="import-stats">
+          <div class="import-stat-row"><span>Imported</span><span id="import-done-done">0</span></div>
+          <div class="import-stat-row"><span>Skipped (duplicates)</span><span id="import-done-skipped">0</span></div>
+          <div class="import-stat-row"><span>Failed</span><span id="import-done-failed">0</span></div>
+        </div>
+        <div class="import-dialog-actions">
+          <button id="import-done-close" class="primary-btn">Done</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Toast container -->
   <div id="toast-container"></div>
@@ -150,6 +239,7 @@
   <script src="js/multiselect.js"></script>
   <script src="js/dragStack.js"></script>
   <script src="js/bulkActions.js"></script>
+  <script src="js/importModal.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

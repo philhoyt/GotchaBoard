@@ -12,8 +12,9 @@ function buildQueue(pins, { resume = false } = {}) {
     const cols = tableInfo.map(c => c.name);
     const hasOldSchema = cols.includes('board_id');
     const missingHash  = !cols.includes('image_hash');
-    if (hasOldSchema || missingHash) {
-      const reason = hasOldSchema ? 'tag-based schema' : 'image_hash column';
+    const missingNote  = !cols.includes('note');
+    if (hasOldSchema || missingHash || missingNote) {
+      const reason = hasOldSchema ? 'tag-based schema' : missingHash ? 'image_hash column' : 'note/alt_text/created_at columns';
       process.stderr.write(`[queueBuilder] Recreating import_queue (adding ${reason})...\n`);
       db.prepare('DROP TABLE import_queue').run();
     }
@@ -28,8 +29,11 @@ function buildQueue(pins, { resume = false } = {}) {
       board_tag TEXT,
       tag_id TEXT REFERENCES tags(id) ON DELETE SET NULL,
       title TEXT,
+      note TEXT,
+      alt_text TEXT,
       source_url TEXT,
       image_hash TEXT,
+      created_at TEXT,
       resolved_image_url TEXT,
       status TEXT NOT NULL DEFAULT 'pending',
       failure_reason TEXT,
@@ -68,8 +72,8 @@ function buildQueue(pins, { resume = false } = {}) {
 
   // 3. Insert pins into import_queue (INSERT OR IGNORE for resume safety)
   const insertPin = db.prepare(`
-    INSERT OR IGNORE INTO import_queue (id, pin_url, board_name, board_tag, tag_id, title, source_url, image_hash, status)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+    INSERT OR IGNORE INTO import_queue (id, pin_url, board_name, board_tag, tag_id, title, note, alt_text, source_url, image_hash, created_at, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
   `);
 
   let pinsInserted = 0;
@@ -87,8 +91,11 @@ function buildQueue(pins, { resume = false } = {}) {
         tagName,
         tagId,
         pin.title || null,
+        pin.note || null,
+        pin.alt_text || null,
         pin.source_url || null,
-        pin.image_hash || null
+        pin.image_hash || null,
+        pin.created_at || null
       );
       if (result.changes > 0) pinsInserted++;
     }

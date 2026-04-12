@@ -286,6 +286,27 @@ router.patch('/:id', (req, res) => {
   }
 });
 
+// ── DELETE /api/images (all) ───────────────────────────────────────
+router.delete('/', (req, res) => {
+  try {
+    const images = db.prepare('SELECT filename, thumbnail FROM images').all();
+
+    db.prepare('DELETE FROM images').run();
+
+    for (const img of images) {
+      try { fs.unlinkSync(path.join(IMAGES_DIR, img.filename)); } catch (_) {}
+      if (img.thumbnail && img.thumbnail !== 'error' && img.thumbnail !== 'placeholder') {
+        try { fs.unlinkSync(path.join(THUMBS_DIR, img.thumbnail)); } catch (_) {}
+      }
+    }
+
+    res.json({ deleted: images.length });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // ── DELETE /api/images/:id ─────────────────────────────────────────
 router.delete('/:id', (req, res) => {
   try {
