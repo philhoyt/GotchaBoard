@@ -51,7 +51,7 @@ html, body {
   gap:         8px;
 }
 
-/* ── Feed grid ────────────────────────────────────────────────── */
+/* ── Feed grid ─────────────────────────────────────────────────── */
 #discover-progress {
   display:     flex;
   align-items: center;
@@ -82,27 +82,23 @@ html, body {
   min-height: 0;
 }
 #discover-grid {
-  display: flex;
-  gap:     12px;
-  padding: 12px;
-  align-items: start;
+  padding:      12px;
+  column-count: var(--discover-cols, 4);
+  column-gap:   12px;
 }
-.discover-grid-col {
-  flex:    1;
-  display: flex;
-  flex-direction: column;
-  gap:     12px;
-  min-width: 0;
-}
-
 /* ── Candidate cards ──────────────────────────────────────────── */
 .discover-card {
+  break-inside:  avoid;
+  width:         100%;
+  margin-bottom: 12px;
   border:        var(--bd);
   box-shadow:    var(--sh);
   background:    var(--surface);
   position:      relative;
   transition:    transform 0.1s ease, box-shadow 0.1s ease;
 }
+@media (max-width: 900px) { #discover-grid { column-count: min(var(--discover-cols, 4), 3); } }
+@media (max-width: 600px) { #discover-grid { column-count: min(var(--discover-cols, 4), 2); } }
 .discover-card:hover {
   transform:  translate(-1px, -1px);
   box-shadow: 4px 4px 0 var(--sh-color);

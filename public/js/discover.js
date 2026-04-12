@@ -33,40 +33,10 @@ async function apiFetch(path, opts = {}) {
 
 // ── State ──────────────────────────────────────────────────────────
 let allTags = [];
-let feedOffset    = 0;
-let feedSeed      = 0;
-let feedCardCount = 0;  // tracks round-robin position across Load More calls
-const PAGE_SIZE = 50;
-
-// ── Column helpers ─────────────────────────────────────────────────
-function getDiscoverCols() {
-  const preferred = Number(localStorage.getItem('gotcha-discover-cols')) || 4;
-  const w = window.innerWidth;
-  if (w <= 600) return Math.min(preferred, 2);
-  if (w <= 900) return Math.min(preferred, 3);
-  return preferred;
-}
-
-function initGridCols() {
-  const grid = document.getElementById('discover-grid');
-  grid.innerHTML = '';
-  feedCardCount = 0;
-  const n = getDiscoverCols();
-  for (let i = 0; i < n; i++) {
-    const col = document.createElement('div');
-    col.className = 'discover-grid-col';
-    grid.appendChild(col);
-  }
-}
-
-function appendCards(candidates) {
-  const cols = document.querySelectorAll('.discover-grid-col');
-  if (!cols.length) return;
-  for (const c of candidates) {
-    cols[feedCardCount % cols.length].appendChild(buildCard(c));
-    feedCardCount++;
-  }
-}
+let feedOffset = 0;
+let feedSeed   = 0;
+const INITIAL_SIZE = 200;
+const PAGE_SIZE    = 50;
 
 // ── Grid scale ─────────────────────────────────────────────────────
 function setGridCols(n) {
@@ -74,6 +44,12 @@ function setGridCols(n) {
     btn.classList.toggle('active', Number(btn.dataset.cols) === n);
   });
   localStorage.setItem('gotcha-discover-cols', n);
+  document.getElementById('discover-grid').style.setProperty('--discover-cols', n);
+}
+
+function appendCards(candidates) {
+  const grid = document.getElementById('discover-grid');
+  candidates.forEach(c => grid.appendChild(buildCard(c)));
 }
 
 // ── Render a candidate card ────────────────────────────────────────
@@ -121,7 +97,7 @@ async function loadFeed() {
   feedSeed   = Math.floor(Math.random() * 2147483647);
   showState('loading');
   try {
-    const data = await apiFetch(`/discover?limit=${PAGE_SIZE}&offset=0&seed=${feedSeed}`);
+    const data = await apiFetch(`/discover?limit=${INITIAL_SIZE}&offset=0&seed=${feedSeed}`);
 
     if (data.candidates.length === 0) {
       showState('empty');
@@ -130,7 +106,7 @@ async function loadFeed() {
     }
 
     showState('grid');
-    initGridCols();
+    document.getElementById('discover-grid').innerHTML = '';
     appendCards(data.candidates);
     feedOffset = data.candidates.length;
     updateLoadMore(feedOffset, data.total);

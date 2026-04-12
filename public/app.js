@@ -104,6 +104,10 @@ function getEffectiveCols() {
   return preferred;
 }
 
+function shortestCol(colEls) {
+  return colEls.reduce((min, col) => col.scrollHeight < min.scrollHeight ? col : min);
+}
+
 function renderGrid() {
   const grid  = document.getElementById('image-grid');
   const empty = document.getElementById('empty-state');
@@ -118,10 +122,7 @@ function renderGrid() {
   empty.classList.remove('visible');
   grid.innerHTML = '';
 
-  // Distribute cards round-robin across columns so reading order (left→right,
-  // top→bottom) matches sort order instead of flowing top-to-bottom per column.
-  const cols = getEffectiveCols();
-  const colEls = Array.from({ length: cols }, () => {
+  const colEls = Array.from({ length: getEffectiveCols() }, () => {
     const col = document.createElement('div');
     col.className = 'grid-col';
     grid.appendChild(col);
@@ -129,7 +130,7 @@ function renderGrid() {
   });
 
   state.images.forEach((image, idx) => {
-    colEls[idx % cols].appendChild(buildCard(image, idx));
+    shortestCol(colEls).appendChild(buildCard(image, idx));
   });
 
   syncSelectionUI();
