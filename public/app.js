@@ -96,6 +96,14 @@ async function loadCollections() {
 }
 
 // ── Grid rendering ─────────────────────────────────────────────────
+function getEffectiveCols() {
+  const preferred = Number(localStorage.getItem('gotcha-grid-cols')) || 4;
+  const w = window.innerWidth;
+  if (w <= 600) return Math.min(preferred, 2);
+  if (w <= 900) return Math.min(preferred, 3);
+  return preferred;
+}
+
 function renderGrid() {
   const grid  = document.getElementById('image-grid');
   const empty = document.getElementById('empty-state');
@@ -110,7 +118,20 @@ function renderGrid() {
   empty.classList.remove('visible');
   grid.innerHTML = '';
 
-  state.images.forEach((image, idx) => grid.appendChild(buildCard(image, idx)));
+  // Distribute cards round-robin across columns so reading order (left→right,
+  // top→bottom) matches sort order instead of flowing top-to-bottom per column.
+  const cols = getEffectiveCols();
+  const colEls = Array.from({ length: cols }, () => {
+    const col = document.createElement('div');
+    col.className = 'grid-col';
+    grid.appendChild(col);
+    return col;
+  });
+
+  state.images.forEach((image, idx) => {
+    colEls[idx % cols].appendChild(buildCard(image, idx));
+  });
+
   syncSelectionUI();
   renderActiveFilters();
 }
@@ -584,11 +605,11 @@ selection.addEventListener('change', () => syncSelectionUI());
 
 // ── Grid scale ─────────────────────────────────────────────────────
 function setGridCols(n) {
-  document.getElementById('image-grid').style.setProperty('--grid-cols', n);
   document.querySelectorAll('.grid-scale-btn').forEach(btn => {
     btn.classList.toggle('active', Number(btn.dataset.cols) === n);
   });
   localStorage.setItem('gotcha-grid-cols', n);
+  renderGrid();
 }
 
 // ── Add Got modal ──────────────────────────────────────────────────
@@ -933,7 +954,19 @@ document.addEventListener('DOMContentLoaded', () => {
   bindEventListeners();
 
   const savedCols = localStorage.getItem('gotcha-grid-cols');
-  if (savedCols) setGridCols(Number(savedCols));
+  if (savedCols) {
+    document.querySelectorAll('.grid-scale-btn').forEach(btn => {
+      btn.classList.toggle('active', Number(btn.dataset.cols) === Number(savedCols));
+    });
+    localStorage.setItem('gotcha-grid-cols', savedCols);
+  }
+
+  // Re-render grid on resize so responsive column caps take effect
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(renderGrid, 150);
+  });
 
   loadAll().catch(() => {
     document.getElementById('image-grid').innerHTML = `
