@@ -84,6 +84,7 @@ html, body {
 #discover-grid {
   padding: 12px;
 }
+#discover-grid.compact-grid .discover-card-meta { display: none; }
 
 /* Masonry column sizer + cards share the same fluid width */
 #discover-grid .grid-sizer,

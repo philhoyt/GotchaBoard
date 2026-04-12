@@ -65,7 +65,9 @@ function updateCardWidth() {
   const targetWidth = Number(localStorage.getItem('gotcha-discover-card-width')) || DEFAULT_CARD_WIDTH;
   const actualWidth = calcColumnWidth(innerWidth, targetWidth);
   currentCardWidth  = actualWidth;
-  document.getElementById('discover-grid').style.setProperty('--card-width', actualWidth + 'px');
+  const grid = document.getElementById('discover-grid');
+  grid.style.setProperty('--card-width', actualWidth + 'px');
+  grid.classList.toggle('compact-grid', actualWidth < 140);
   return actualWidth;
 }
 
