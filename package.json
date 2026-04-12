@@ -4,15 +4,23 @@
   "description": "Self-hosted local image bookmarking tool",
   "main": "electron/main.js",
   "scripts": {
-    "start": "electron-rebuild -f -w better-sqlite3 && codesign --force --sign - node_modules/better-sqlite3/build/Release/better_sqlite3.node && electron .",
-    "start:server": "npm rebuild && node server/index.js",
-    "dev": "npm rebuild && node --watch server/index.js",
+    "dev": "npm rebuild && concurrently \"node --watch server/index.js\" \"vite\"",
+    "dev:server": "npm rebuild && node --watch server/index.js",
+    "dev:client": "vite",
+    "build": "vite build",
+    "start": "npm run build && electron .",
+    "start:server": "npm rebuild && npm run build && node server/index.js",
     "import:pinterest": "node import/pinterest.js",
-    "pack": "electron-builder --dir",
-    "dist": "electron-rebuild -f -w better-sqlite3 && codesign --force --sign - node_modules/better-sqlite3/build/Release/better_sqlite3.node && electron-builder --config.npmRebuild=false",
+    "pack": "npm run build && electron-builder --dir",
+    "dist": "npm run build && electron-builder",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist:linux": "npm run build && electron-builder --linux",
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
+    "@fontsource/dm-sans": "^5.2.8",
+    "@fontsource/syne": "^5.2.7",
     "adm-zip": "^0.5.10",
     "better-sqlite3": "^12.8.0",
     "cli-progress": "^3.12.0",
@@ -20,6 +28,8 @@
     "csv-parse": "^5.5.0",
     "dotenv": "^17.4.1",
     "express": "^4.18.3",
+    "imagesloaded": "^5.0.0",
+    "masonry-layout": "^4.2.2",
     "multer": "^2.1.1",
     "node-cron": "^4.2.1",
     "puppeteer": "^22.0.0",
@@ -27,13 +37,17 @@
     "uuid": "^9.0.1"
   },
   "devDependencies": {
+    "concurrently": "^9.2.1",
     "electron": "^35.7.5",
     "electron-builder": "^26.8.1",
-    "electron-rebuild": "^3.2.9"
+    "electron-rebuild": "^3.2.9",
+    "sass": "^1.99.0",
+    "vite": "^8.0.8"
   },
   "build": {
     "appId": "com.gotchaboard.app",
     "productName": "GotchaBoard",
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
     "directories": {
       "output": "dist"
     },
@@ -59,10 +73,26 @@
     "mac": {
       "category": "public.app-category.productivity",
       "target": [
-        "dmg",
-        "zip"
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        },
+        {
+          "target": "zip",
+          "arch": ["x64", "arm64"]
+        }
       ],
-      "icon": "build/icon.icns"
+      "icon": "build/icon.icns",
+      "identity": null,
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
+    },
+    "dmg": {
+      "title": "${productName} ${version}",
+      "contents": [
+        { "x": 130, "y": 220 },
+        { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
+      ]
     },
     "win": {
       "target": [
@@ -73,7 +103,13 @@
     },
     "nsis": {
       "oneClick": true,
-      "perMachine": false
+      "perMachine": false,
+      "deleteAppDataOnUninstall": false
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "icon": "build/icon.iconset",
+      "category": "Graphics"
     }
   }
 }

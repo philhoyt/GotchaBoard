@@ -5,29 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Manage Tags — GotchaBoard</title>
   <link rel="icon" type="image/png" href="/icon.png">
-
-  <!-- Fonts first — prevents FOUT -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/syne@5/700.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/dm-sans@5/400.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/dm-sans@5/500.css">
-
-  <!-- Theme detection before CSS — prevents flash on dark mode -->
+  <!-- Theme detection before render — prevents flash on dark mode -->
   <script>(function(){var s=localStorage.getItem('gotcha-theme'),p=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',s||p);})();</script>
-
-  <!-- Design system -->
-  <link rel="stylesheet" href="css/tokens.css">
-  <link rel="stylesheet" href="css/typography.css">
-  <link rel="stylesheet" href="css/components.css">
-  <link rel="stylesheet" href="css/animations.css">
-  <!-- Tags manager layout -->
-  <link rel="stylesheet" href="css/tags-manager.css">
 </head>
 <body>
   <div id="tags-app">
     <header id="tags-header">
       <a href="index.html" id="back-link" title="Back to board">← GotchaBoard</a>
       <h1>Manage Tags</h1>
-      <button id="theme-toggle" class="primary-btn" style="font-size:16px;padding:5px 10px" title="Toggle theme" onclick="toggleTheme()">☾</button>
+      <button id="theme-toggle" class="primary-btn" style="font-size:16px;padding:5px 10px" title="Toggle theme">☾</button>
       <button id="new-tag-btn" class="primary-btn">+ New Tag</button>
     </header>
 
@@ -41,7 +27,6 @@
     </div>
 
     <div id="tags-main">
-      <!-- New tag form (inline, hidden by default) -->
       <div id="new-tag-form" style="display:none">
         <div class="tag-form-inner">
           <input type="text" id="new-tag-name" placeholder="Tag name" maxlength="100" autocomplete="off">
@@ -108,8 +93,6 @@
 
   <div id="toast-container"></div>
 
-  <script src="js/theme.js"></script>
-  <script src="js/tagColor.js"></script>
-  <script src="js/tags.js"></script>
+  <script type="module" src="/js/tags.js"></script>
 </body>
 </html>

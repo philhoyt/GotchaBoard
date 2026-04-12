@@ -1,3 +1,13 @@
+import '@fontsource/syne/700.css';
+import '@fontsource/dm-sans/400.css';
+import '@fontsource/dm-sans/500.css';
+import '../styles/discover.scss';
+
+import { toggleTheme } from './utils/theme.js';
+import { getTagColor } from './utils/tagColor.js';
+import { attachTagSuggestions } from './utils/tagSuggest.js';
+import { calcColumnWidth, DEFAULT_CARD_WIDTH, initMasonry } from './utils/grid.js';
+
 'use strict';
 
 const API = window.location.origin + '/api';
@@ -32,24 +42,57 @@ async function apiFetch(path, opts = {}) {
 }
 
 // ── State ──────────────────────────────────────────────────────────
-let allTags = [];
-let feedOffset = 0;
-let feedSeed   = 0;
-const INITIAL_SIZE = 200;
-const PAGE_SIZE    = 50;
+let allTags         = [];
+let _saveSuggest    = null;
+let feedOffset      = 0;
+let feedSeed        = 0;
+let msnry           = null;
+let currentCardWidth = DEFAULT_CARD_WIDTH;
+let layoutTimer     = null;
+const INITIAL_SIZE  = 200;
+const PAGE_SIZE     = 50;
+
+function scheduleLayout() {
+  if (layoutTimer) return;
+  layoutTimer = setTimeout(() => {
+    layoutTimer = null;
+    if (msnry) msnry.layout();
+  }, 100);
+}
 
 // ── Grid scale ─────────────────────────────────────────────────────
-function setGridCols(n) {
+function updateCardWidth() {
+  const scroll = document.getElementById('discover-scroll');
+  const innerWidth = scroll.clientWidth - 24; // subtract 12px left + 12px right padding
+  const targetWidth = Number(localStorage.getItem('gotcha-discover-card-width')) || DEFAULT_CARD_WIDTH;
+  const actualWidth = calcColumnWidth(innerWidth, targetWidth);
+  currentCardWidth  = actualWidth;
+  const grid = document.getElementById('discover-grid');
+  grid.style.setProperty('--card-width', actualWidth + 'px');
+  grid.classList.toggle('compact-grid', actualWidth < 140);
+  return actualWidth;
+}
+
+function setCardWidth(w) {
   document.querySelectorAll('.grid-scale-btn').forEach(btn => {
-    btn.classList.toggle('active', Number(btn.dataset.cols) === n);
+    btn.classList.toggle('active', Number(btn.dataset.cardWidth) === w);
   });
-  localStorage.setItem('gotcha-discover-cols', n);
-  document.getElementById('discover-grid').style.setProperty('--discover-cols', n);
+  localStorage.setItem('gotcha-discover-card-width', w);
+  updateCardWidth();
+  if (msnry) msnry.layout();
 }
 
 function appendCards(candidates) {
   const grid = document.getElementById('discover-grid');
-  candidates.forEach(c => grid.appendChild(buildCard(c)));
+  const newItems = candidates.map(c => {
+    const el = buildCard(c);
+    grid.appendChild(el);
+    return el;
+  });
+  if (msnry) {
+    msnry.appended(newItems);
+    msnry.layout();
+  }
 }
 
 // ── Render a candidate card ────────────────────────────────────────
@@ -63,9 +106,13 @@ function buildCard(candidate) {
     catch (_) { return candidate.source_type; }
   })();
 
+  const placeholderHeight = Math.round(currentCardWidth * 1.3);
+
   card.innerHTML = `
-    <img class="discover-card-img" src="${esc(candidate.image_url)}"
-         alt="" loading="lazy">
+    <div class="card-image-wrap">
+      <div class="card-skeleton" style="height:${placeholderHeight}px"></div>
+      <img class="discover-card-img" src="${esc(candidate.image_url)}" alt="">
+    </div>
     <div class="discover-card-meta">
       <div class="discover-card-top">
         <span class="discover-source" title="${esc(candidate.page_url || '')}">${esc(sourceDomain)}</span>
@@ -78,12 +125,32 @@ function buildCard(candidate) {
   `;
 
   const img = card.querySelector('.discover-card-img');
+
+  // After 10s, stop shimmer and show a fallback state
+  const timeout = setTimeout(() => {
+    const sk = card.querySelector('.card-skeleton');
+    if (sk) {
+      sk.style.animation  = 'none';
+      sk.style.background = 'var(--surface)';
+      sk.textContent      = '⚠';
+      Object.assign(sk.style, { display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink-dim)', fontSize: '20px' });
+    }
+  }, 10000);
+
   img.addEventListener('load', () => {
+    clearTimeout(timeout);
     if (img.naturalWidth < 500 || img.naturalHeight < 500) {
       dismissCandidate(candidate.id, card);
+      return;
     }
+    card.querySelector('.card-skeleton')?.remove();
+    img.classList.add('img-loaded');
+    scheduleLayout();
   });
-  img.addEventListener('error', () => dismissCandidate(candidate.id, card));
+  img.addEventListener('error', () => {
+    clearTimeout(timeout);
+    dismissCandidate(candidate.id, card);
+  });
   img.addEventListener('click', () => saveCandidate(candidate));
   card.querySelector('.discover-save-btn').addEventListener('click', () => saveCandidate(candidate));
   card.querySelector('.discover-dismiss-btn').addEventListener('click', () => dismissCandidate(candidate.id, card));
@@ -106,8 +173,23 @@ async function loadFeed() {
     }
 
     showState('grid');
-    document.getElementById('discover-grid').innerHTML = '';
-    appendCards(data.candidates);
+    const grid = document.getElementById('discover-grid');
+    grid.innerHTML = '';
+    if (msnry) { msnry.destroy(); msnry = null; }
+    updateCardWidth();
+
+    const sizer = document.createElement('div');
+    sizer.className = 'grid-sizer';
+    grid.appendChild(sizer);
+
+    const items = data.candidates.map(c => {
+      const el = buildCard(c);
+      grid.appendChild(el);
+      return el;
+    });
+    msnry = initMasonry(grid, '.discover-card');
+    // Skeletons provide stable heights — per-card load handlers call scheduleLayout()
+
     feedOffset = data.candidates.length;
     updateLoadMore(feedOffset, data.total);
   } catch (err) {
@@ -118,7 +200,7 @@ async function loadFeed() {
 
 async function loadMore() {
   const btn = document.getElementById('load-more-btn');
-  btn.disabled = true;
+  btn.disabled    = true;
   btn.textContent = 'Loading…';
   try {
     const data = await apiFetch(`/discover?limit=${PAGE_SIZE}&offset=${feedOffset}&seed=${feedSeed}`);
@@ -128,7 +210,7 @@ async function loadMore() {
   } catch (err) {
     toast('Failed to load more');
   } finally {
-    btn.disabled = false;
+    btn.disabled    = false;
     btn.textContent = 'Load more';
   }
 }
@@ -153,8 +235,7 @@ function showState(state) {
 }
 
 // ── Save candidate ─────────────────────────────────────────────────
-async function saveCandidate(candidate) {
-  // Open detail-panel-style form to add tags before saving
+function saveCandidate(candidate) {
   openSaveDialog(candidate);
 }
 
@@ -171,7 +252,7 @@ function openSaveDialog(candidate) {
     const input = document.getElementById('save-dialog-tag-input');
     if (getDialogTags().includes(name)) return;
     const t     = allTags.find(t => t.name === name);
-    const color = t?.color || (typeof getTagColor === 'function' ? getTagColor(name) : '');
+    const color = t?.color || getTagColor(name);
     const pill  = document.createElement('span');
     pill.className   = 'detail-tag-pill';
     pill.dataset.tag = name;
@@ -206,16 +287,20 @@ function openSaveDialog(candidate) {
   panel.classList.add('open');
   overlay.classList.add('open');
 
-  document.getElementById('save-dialog-tag-input').addEventListener('keydown', e => {
-    if (e.key === 'Enter') { e.preventDefault(); const v = e.target.value.trim(); if (v) { addPill(v); e.target.value = ''; } }
+  const tagInput = document.getElementById('save-dialog-tag-input');
+  _saveSuggest?.destroy();
+  _saveSuggest = attachTagSuggestions(tagInput, () => allTags, (name) => addPill(name));
+
+  tagInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); const v = tagInput.value.trim(); if (v) { addPill(v); tagInput.value = ''; } }
     if (e.key === 'Escape') closeSaveDialog();
   });
 
   document.getElementById('save-dialog-confirm').addEventListener('click', async () => {
-    const btn   = document.getElementById('save-dialog-confirm');
+    const btn  = document.getElementById('save-dialog-confirm');
     const tags = getDialogTags();
 
-    btn.disabled   = true;
+    btn.disabled    = true;
     btn.textContent = 'Saving…';
 
     try {
@@ -224,13 +309,17 @@ function openSaveDialog(candidate) {
         body: JSON.stringify({ tags }),
       });
       closeSaveDialog();
-      // Remove card from feed
       const card = document.querySelector(`.discover-card[data-id="${candidate.id}"]`);
-      if (card) { card.classList.add('dismissing'); card.addEventListener('animationend', () => card.remove()); }
+      if (card) {
+        card.classList.add('dismissing');
+        card.addEventListener('animationend', () => {
+          if (msnry) { msnry.remove(card); msnry.layout(); } else { card.remove(); }
+        });
+      }
       toast('Got saved!');
     } catch (err) {
       document.getElementById('save-dialog-error').textContent = err.message;
-      btn.disabled   = false;
+      btn.disabled    = false;
       btn.textContent = 'Save Got';
     }
   });
@@ -242,6 +331,7 @@ function closeSaveDialog() {
   document.getElementById('detail-panel').classList.remove('open');
   document.getElementById('detail-overlay').classList.remove('open');
   document.getElementById('detail-content').innerHTML = '';
+  _saveSuggest?.destroy(); _saveSuggest = null;
 }
 
 // ── Dismiss candidate ──────────────────────────────────────────────
@@ -250,8 +340,13 @@ async function dismissCandidate(id, card) {
     await apiFetch(`/discover/${id}/dismiss`, { method: 'POST' });
     card.classList.add('dismissing');
     card.addEventListener('animationend', () => {
-      card.remove();
-      if (document.getElementById('discover-grid').children.length === 0) showState('empty');
+      if (msnry) {
+        msnry.remove(card);
+        msnry.layout();
+      } else {
+        card.remove();
+      }
+      if (document.querySelectorAll('.discover-card').length === 0) showState('empty');
     });
   } catch (err) {
     toast('Failed to dismiss');
@@ -311,8 +406,8 @@ async function addSource() {
       method: 'POST',
       body: JSON.stringify({ label, url, type, fetch_interval_hours: interval }),
     });
-    document.getElementById('source-label').value   = '';
-    document.getElementById('source-url').value     = '';
+    document.getElementById('source-label').value    = '';
+    document.getElementById('source-url').value      = '';
     document.getElementById('source-interval').value = '24';
     await loadSources();
     toast(`Source "${label}" added`);
@@ -352,9 +447,8 @@ async function loadStats() {
 
 // ── Settings panel ─────────────────────────────────────────────────
 function openSettings() {
-  document.getElementById('settings-panel').style.display  = '';
+  document.getElementById('settings-panel').style.display   = '';
   document.getElementById('settings-overlay').style.display = '';
-  // Sync theme toggle label to current theme
   const themeBtn = document.getElementById('theme-toggle');
   if (themeBtn && themeBtn.classList.contains('ghost-btn')) {
     themeBtn.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀ Light mode' : '☾ Dark mode';
@@ -364,7 +458,7 @@ function openSettings() {
 }
 
 function closeSettings() {
-  document.getElementById('settings-panel').style.display  = 'none';
+  document.getElementById('settings-panel').style.display   = 'none';
   document.getElementById('settings-overlay').style.display = 'none';
 }
 
@@ -381,7 +475,7 @@ function startDiscoverPolling() {
 
   _discoverPollTimer = setInterval(async () => {
     try {
-      const s = await apiFetch('/discover/running');
+      const s     = await apiFetch('/discover/running');
       const phase = s.phase === 'rss' ? 'Scraping RSS feeds' : 'Crawling sources';
       text.textContent = s.running
         ? `${phase}… ${s.queued} candidate${s.queued !== 1 ? 's' : ''} found`
@@ -400,12 +494,12 @@ function stopDiscoverPolling() {
   _discoverPollTimer = null;
   document.getElementById('discover-progress').style.display = 'none';
   document.querySelectorAll('#run-discover-btn, #empty-run-btn').forEach(b => {
-    b.disabled = false;
+    b.disabled    = false;
     b.textContent = 'Run Discovery';
   });
 }
 
-async function runDiscovery(btn) {
+async function runDiscovery() {
   try {
     await apiFetch('/discover/run', { method: 'POST' });
     startDiscoverPolling();
@@ -419,43 +513,39 @@ async function loadTags() {
   try { allTags = await apiFetch('/tags'); } catch (_) {}
 }
 
-// ── Wire up events from main app topbar ───────────────────────────
-function wireDiscoverButton() {
-  // In index.html the Discover button links to discover.html — no JS needed.
-  // This function is a no-op but kept for clarity.
-}
-
 // ── Init ───────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
+  // Theme toggle
+  document.getElementById('theme-toggle')?.addEventListener('click', toggleTheme);
+
   // Grid density
-  const savedCols = localStorage.getItem('gotcha-discover-cols');
-  if (savedCols) setGridCols(Number(savedCols));
+  const savedCardWidth = localStorage.getItem('gotcha-discover-card-width');
+  if (savedCardWidth) {
+    document.querySelectorAll('.grid-scale-btn').forEach(btn => {
+      btn.classList.toggle('active', Number(btn.dataset.cardWidth) === Number(savedCardWidth));
+    });
+  }
 
   document.querySelectorAll('.grid-scale-btn').forEach(btn => {
-    btn.addEventListener('click', () => setGridCols(Number(btn.dataset.cols)));
+    btn.addEventListener('click', () => setCardWidth(Number(btn.dataset.cardWidth)));
   });
 
-  // Run discovery
-  document.getElementById('run-discover-btn').addEventListener('click', e => runDiscovery(e.currentTarget));
-  document.getElementById('empty-run-btn')?.addEventListener('click', e => runDiscovery(e.currentTarget));
+  document.getElementById('run-discover-btn').addEventListener('click', runDiscovery);
+  document.getElementById('empty-run-btn')?.addEventListener('click', runDiscovery);
   document.getElementById('load-more-btn')?.addEventListener('click', loadMore);
 
-  // Settings
   document.getElementById('settings-btn').addEventListener('click', openSettings);
   document.getElementById('settings-close').addEventListener('click', closeSettings);
   document.getElementById('settings-overlay').addEventListener('click', closeSettings);
 
-  // Add source
   document.getElementById('add-source-btn').addEventListener('click', addSource);
   document.getElementById('source-url').addEventListener('keydown', e => {
     if (e.key === 'Enter') addSource();
   });
 
-  // Detail panel close
   document.getElementById('detail-close').addEventListener('click', closeSaveDialog);
   document.getElementById('detail-overlay').addEventListener('click', closeSaveDialog);
 
-  // Escape
   document.addEventListener('keydown', e => {
     if (e.key !== 'Escape') return;
     if (document.getElementById('detail-panel').classList.contains('open')) { closeSaveDialog(); return; }
@@ -465,7 +555,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadTags();
   await loadFeed();
 
-  // If a cycle is already running (e.g. triggered by cron), show the indicator
   try {
     const s = await apiFetch('/discover/running');
     if (s.running) startDiscoverPolling();

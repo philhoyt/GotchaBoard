@@ -1,16 +1,23 @@
+import '@fontsource/syne/700.css';
+import '@fontsource/dm-sans/400.css';
+import '@fontsource/dm-sans/500.css';
+import '../styles/tags.scss';
+
+import { toggleTheme } from './utils/theme.js';
+import { getTagColor } from './utils/tagColor.js';
+
 'use strict';
 
 const API = window.location.origin + '/api';
 
-// ── State ──────────────────────────────────────────────────────────────────
-let allTags = [];
-let filterQuery = '';
-let showEmpty = true;
+// ── State ──────────────────────────────────────────────────────────
+let allTags      = [];
+let filterQuery  = '';
+let showEmpty    = true;
 let editingTagId = null;
-let mergingTag = null;       // { id, name } being dragged
-let mergeTargetId = null;
+let mergingTag   = null;
 
-// ── API helpers ────────────────────────────────────────────────────────────
+// ── API helpers ────────────────────────────────────────────────────
 async function apiFetch(path, opts = {}) {
   const res = await fetch(`${API}${path}`, {
     headers: { 'Content-Type': 'application/json' },
@@ -23,7 +30,7 @@ async function apiFetch(path, opts = {}) {
   return res.status === 204 ? null : res.json();
 }
 
-// ── Toast ──────────────────────────────────────────────────────────────────
+// ── Toast ──────────────────────────────────────────────────────────
 function toast(msg, type = 'success') {
   const el = document.createElement('div');
   el.className = `toast${type === 'error' ? ' toast-error' : ''}`;
@@ -35,7 +42,7 @@ function toast(msg, type = 'success') {
   }, 2800);
 }
 
-// ── Load & render ──────────────────────────────────────────────────────────
+// ── Load & render ──────────────────────────────────────────────────
 async function loadTags() {
   allTags = await apiFetch('/tags');
   renderTree();
@@ -48,18 +55,16 @@ function visibleTags() {
     tags = tags.filter(t => t.name.toLowerCase().includes(q));
   }
   if (!showEmpty) {
-    // keep tag if it or any of its children has count > 0
     tags = tags.filter(t => t.count > 0 || allTags.some(c => c.parent_id === t.id && c.count > 0));
   }
   return tags;
 }
 
 function renderTree() {
-  const tree = document.getElementById('tags-tree');
+  const tree  = document.getElementById('tags-tree');
   const empty = document.getElementById('tags-empty');
-  const tags = visibleTags();
+  const tags  = visibleTags();
 
-  // Build parent-indexed map
   const topLevel = tags.filter(t => !t.parent_id);
   const childMap = {};
   for (const t of tags) {
@@ -82,7 +87,6 @@ function renderTree() {
     tree.appendChild(buildTagRow(tag, children));
   }
 
-  // Populate parent selects now that tree is fresh
   populateParentSelects();
 }
 
@@ -93,12 +97,12 @@ function buildTagRow(tag, children = []) {
 
   li.innerHTML = `
     <div class="tag-row-inner">
-      <span class="tag-swatch" style="background:${tag.color || (typeof getTagColor === 'function' ? getTagColor(tag.name) : '#C4AAFF')}"></span>
+      <span class="tag-swatch" style="background:${tag.color || getTagColor(tag.name)}"></span>
       <span class="tag-name">${escHtml(tag.name)}</span>
       <span class="tag-count">${tag.count} Got${tag.count !== 1 ? 's' : ''}</span>
       <div class="tag-actions">
-        <button class="tag-action-btn" data-act="edit"  data-id="${tag.id}" title="Edit">Edit</button>
-        <button class="tag-action-btn" data-act="merge" data-id="${tag.id}" title="Merge into another tag">Merge</button>
+        <button class="tag-action-btn" data-act="edit"   data-id="${tag.id}" title="Edit">Edit</button>
+        <button class="tag-action-btn" data-act="merge"  data-id="${tag.id}" title="Merge into another tag">Merge</button>
         <button class="tag-action-btn danger" data-act="delete" data-id="${tag.id}" title="Delete tag">Delete</button>
       </div>
     </div>
@@ -113,12 +117,12 @@ function buildTagRow(tag, children = []) {
       cli.dataset.tagId = child.id;
       cli.innerHTML = `
         <div class="tag-row-inner">
-          <span class="tag-swatch" style="background:${child.color || (typeof getTagColor === 'function' ? getTagColor(child.name) : '#C4AAFF')}"></span>
+          <span class="tag-swatch" style="background:${child.color || getTagColor(child.name)}"></span>
           <span class="tag-name">${escHtml(child.name)}</span>
           <span class="tag-count">${child.count} Got${child.count !== 1 ? 's' : ''}</span>
           <div class="tag-actions">
-            <button class="tag-action-btn" data-act="edit"  data-id="${child.id}" title="Edit">Edit</button>
-            <button class="tag-action-btn" data-act="merge" data-id="${child.id}" title="Merge into another tag">Merge</button>
+            <button class="tag-action-btn" data-act="edit"   data-id="${child.id}" title="Edit">Edit</button>
+            <button class="tag-action-btn" data-act="merge"  data-id="${child.id}" title="Merge into another tag">Merge</button>
             <button class="tag-action-btn danger" data-act="delete" data-id="${child.id}" title="Delete tag">Delete</button>
           </div>
         </div>
@@ -131,15 +135,12 @@ function buildTagRow(tag, children = []) {
   return li;
 }
 
-// ── Parent select population ───────────────────────────────────────────────
 function populateParentSelects(excludeId = null) {
   const topLevel = allTags.filter(t => !t.parent_id && t.id !== excludeId);
-
   ['new-tag-parent', 'edit-tag-parent'].forEach(id => {
     const sel = document.getElementById(id);
     if (!sel) return;
     const current = sel.value;
-    // Keep first option (— No parent —)
     while (sel.options.length > 1) sel.remove(1);
     for (const t of topLevel) {
       const opt = document.createElement('option');
@@ -151,11 +152,10 @@ function populateParentSelects(excludeId = null) {
   });
 }
 
-// ── New tag form ───────────────────────────────────────────────────────────
 function showNewTagForm() {
   const form = document.getElementById('new-tag-form');
   form.style.display = '';
-  document.getElementById('new-tag-name').value = '';
+  document.getElementById('new-tag-name').value  = '';
   document.getElementById('new-tag-color').value = '#FFE566';
   document.getElementById('new-tag-parent').value = '';
   populateParentSelects();
@@ -167,16 +167,13 @@ function hideNewTagForm() {
 }
 
 async function createTag() {
-  const name = document.getElementById('new-tag-name').value.trim();
+  const name      = document.getElementById('new-tag-name').value.trim();
   if (!name) return;
   const color     = document.getElementById('new-tag-color').value;
   const parent_id = document.getElementById('new-tag-parent').value || null;
 
   try {
-    await apiFetch('/tags', {
-      method: 'POST',
-      body: JSON.stringify({ name, color, parent_id })
-    });
+    await apiFetch('/tags', { method: 'POST', body: JSON.stringify({ name, color, parent_id }) });
     hideNewTagForm();
     await loadTags();
     toast(`Tag "${name}" created`);
@@ -185,7 +182,6 @@ async function createTag() {
   }
 }
 
-// ── Edit modal ─────────────────────────────────────────────────────────────
 function openEditModal(tagId) {
   const tag = allTags.find(t => t.id === tagId);
   if (!tag) return;
@@ -194,7 +190,6 @@ function openEditModal(tagId) {
   document.getElementById('edit-tag-name').value  = tag.name;
   document.getElementById('edit-tag-color').value = tag.color || '#FFE566';
 
-  // Populate parent select (exclude self and children to prevent cycles)
   const childIds = allTags.filter(t => t.parent_id === tagId).map(t => t.id);
   const topLevel = allTags.filter(t => !t.parent_id && t.id !== tagId && !childIds.includes(t.id));
   const sel = document.getElementById('edit-tag-parent');
@@ -221,14 +216,10 @@ async function saveEditModal() {
   const name      = document.getElementById('edit-tag-name').value.trim();
   const color     = document.getElementById('edit-tag-color').value;
   const parent_id = document.getElementById('edit-tag-parent').value || null;
-
   if (!name) return;
 
   try {
-    await apiFetch(`/tags/${editingTagId}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ name, color, parent_id })
-    });
+    await apiFetch(`/tags/${editingTagId}`, { method: 'PATCH', body: JSON.stringify({ name, color, parent_id }) });
     closeEditModal();
     await loadTags();
     toast(`Tag updated`);
@@ -237,7 +228,6 @@ async function saveEditModal() {
   }
 }
 
-// ── Merge modal ────────────────────────────────────────────────────────────
 function openMergeModal(tagId) {
   const tag = allTags.find(t => t.id === tagId);
   if (!tag) return;
@@ -268,15 +258,12 @@ function closeMergeModal() {
 
 async function confirmMerge() {
   if (!mergingTag) return;
-  const targetId = document.getElementById('merge-target-select').value;
+  const targetId  = document.getElementById('merge-target-select').value;
   if (!targetId) return;
   const targetTag = allTags.find(t => t.id === targetId);
 
   try {
-    await apiFetch(`/tags/${mergingTag.id}/merge`, {
-      method: 'POST',
-      body: JSON.stringify({ target_id: targetId })
-    });
+    await apiFetch(`/tags/${mergingTag.id}/merge`, { method: 'POST', body: JSON.stringify({ target_id: targetId }) });
     closeMergeModal();
     await loadTags();
     toast(`"${mergingTag.name}" merged into "${targetTag?.name || 'tag'}"`);
@@ -285,7 +272,6 @@ async function confirmMerge() {
   }
 }
 
-// ── Delete ─────────────────────────────────────────────────────────────────
 async function deleteTag(tagId) {
   const tag = allTags.find(t => t.id === tagId);
   if (!tag) return;
@@ -314,45 +300,29 @@ async function deleteUnused() {
 
   let deleted = 0;
   for (const tag of unused) {
-    try {
-      await apiFetch(`/tags/${tag.id}`, { method: 'DELETE' });
-      deleted++;
-    } catch (_) {}
+    try { await apiFetch(`/tags/${tag.id}`, { method: 'DELETE' }); deleted++; } catch (_) {}
   }
   await loadTags();
   toast(`Deleted ${deleted} unused tag${deleted !== 1 ? 's' : ''}`);
 }
 
-// ── Drag-to-merge ──────────────────────────────────────────────────────────
-// Drag a tag row onto another to trigger the merge modal
-let _dragTag = null;
-
 function initDragToMerge() {
   const tree = document.getElementById('tags-tree');
-
   tree.addEventListener('mousedown', (e) => {
     const row = e.target.closest('.tag-row-inner');
     if (!row) return;
-    // Don't interfere with action buttons
     if (e.target.closest('.tag-actions')) return;
-
     const li = row.closest('[data-tag-id]');
     if (!li) return;
-    _dragTag = allTags.find(t => t.id === li.dataset.tagId) || null;
   });
-
-  // Clear on mouseup — actual merge initiated via button, drag is handled separately
-  window.addEventListener('mouseup', () => { _dragTag = null; });
+  window.addEventListener('mouseup', () => {});
 }
 
-// ── Utility ────────────────────────────────────────────────────────────────
 function escHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-// ── Event wiring ───────────────────────────────────────────────────────────
 function bindEvents() {
-  // New tag
   document.getElementById('new-tag-btn').addEventListener('click', showNewTagForm);
   document.getElementById('new-tag-cancel').addEventListener('click', hideNewTagForm);
   document.getElementById('new-tag-save').addEventListener('click', createTag);
@@ -361,7 +331,6 @@ function bindEvents() {
     if (e.key === 'Escape') hideNewTagForm();
   });
 
-  // Search / filter
   document.getElementById('tags-search').addEventListener('input', e => {
     filterQuery = e.target.value.trim();
     renderTree();
@@ -374,7 +343,6 @@ function bindEvents() {
 
   document.getElementById('delete-unused-btn').addEventListener('click', deleteUnused);
 
-  // Tag action delegation
   document.getElementById('tags-tree').addEventListener('click', e => {
     const btn = e.target.closest('.tag-action-btn');
     if (!btn) return;
@@ -384,7 +352,6 @@ function bindEvents() {
     if (act === 'delete') deleteTag(id);
   });
 
-  // Edit modal
   document.getElementById('edit-modal-backdrop').addEventListener('click', closeEditModal);
   document.getElementById('edit-modal-cancel').addEventListener('click', closeEditModal);
   document.getElementById('edit-modal-save').addEventListener('click', saveEditModal);
@@ -393,12 +360,10 @@ function bindEvents() {
     if (e.key === 'Escape') closeEditModal();
   });
 
-  // Merge modal
   document.getElementById('merge-modal-backdrop').addEventListener('click', closeMergeModal);
   document.getElementById('merge-modal-cancel').addEventListener('click', closeMergeModal);
   document.getElementById('merge-modal-confirm').addEventListener('click', confirmMerge);
 
-  // Global Escape
   document.addEventListener('keydown', e => {
     if (e.key !== 'Escape') return;
     if (document.getElementById('edit-modal').style.display !== 'none') closeEditModal();
@@ -406,9 +371,10 @@ function bindEvents() {
   });
 }
 
-// ── Init ───────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
-  // Sync theme toggle icon
+  // Theme toggle (replaces onclick="toggleTheme()")
+  document.getElementById('theme-toggle')?.addEventListener('click', toggleTheme);
+  // Sync icon
   const themeBtn = document.getElementById('theme-toggle');
   if (themeBtn) {
     themeBtn.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀' : '☾';

@@ -6,12 +6,12 @@ const { upsertTags } = require('./tags');
 
 const router = express.Router();
 
-const VALID_ACTIONS = ['add_tags', 'remove_tags', 'move_to_tags', 'delete'];
+const VALID_ACTIONS = ['add_tags', 'remove_tags', 'move_to_tags', 'manage_tags', 'delete'];
 
 // POST /api/gots/bulk
 router.post('/', (req, res) => {
   try {
-    const { ids, action, tags = [] } = req.body;
+    const { ids, action, tags = [], add = [], remove = [] } = req.body;
 
     if (!Array.isArray(ids) || ids.length === 0) {
       return res.status(400).json({ error: 'ids must be a non-empty array' });
@@ -21,6 +21,9 @@ router.post('/', (req, res) => {
     }
     if (['add_tags', 'remove_tags', 'move_to_tags'].includes(action) && tags.length === 0) {
       return res.status(400).json({ error: 'tags is required for this action' });
+    }
+    if (action === 'manage_tags' && add.length === 0 && remove.length === 0) {
+      return res.status(400).json({ error: 'manage_tags requires at least one add or remove tag' });
     }
 
     // Verify all images exist
@@ -77,6 +80,34 @@ router.post('/', (req, res) => {
         }
       });
       moveAll();
+    }
+
+    else if (action === 'manage_tags') {
+      const manageAll = db.transaction(() => {
+        if (remove.length > 0) {
+          const removeNames = remove.map(t => String(t).trim().toLowerCase()).filter(Boolean);
+          const ph = removeNames.map(() => '?').join(',');
+          const tagRows = db.prepare(`SELECT id FROM tags WHERE name IN (${ph})`).all(...removeNames);
+          const removeTag = db.prepare('DELETE FROM image_tags WHERE image_id = ? AND tag_id = ?');
+          for (const imageId of ids) {
+            for (const row of tagRows) {
+              removeTag.run(imageId, row.id);
+            }
+          }
+        }
+        if (add.length > 0) {
+          const addTagIds = upsertTags(add);
+          const insertTag = db.prepare('INSERT OR IGNORE INTO image_tags (image_id, tag_id) VALUES (?, ?)');
+          for (const imageId of ids) {
+            for (const tagId of addTagIds) {
+              const result = insertTag.run(imageId, tagId);
+              affected += result.changes;
+            }
+          }
+        }
+        if (affected === 0) affected = ids.length;
+      });
+      manageAll();
     }
 
     else if (action === 'delete') {

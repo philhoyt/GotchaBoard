@@ -82,23 +82,25 @@ html, body {
   min-height: 0;
 }
 #discover-grid {
-  padding:      12px;
-  column-count: var(--discover-cols, 4);
-  column-gap:   12px;
+  padding: 12px;
 }
-/* ── Candidate cards ──────────────────────────────────────────── */
+#discover-grid.compact-grid .discover-card-meta { display: none; }
+
+/* Masonry column sizer + cards share the same fluid width */
+#discover-grid .grid-sizer,
+#discover-grid .discover-card {
+  width: var(--card-width, 220px);
+}
+
+/* ── Candidate cards ──────────────────────���───────────────────── */
 .discover-card {
-  break-inside:  avoid;
-  width:         100%;
-  margin-bottom: 12px;
   border:        var(--bd);
   box-shadow:    var(--sh);
   background:    var(--surface);
   position:      relative;
+  margin-bottom: 12px;
   transition:    transform 0.1s ease, box-shadow 0.1s ease;
 }
-@media (max-width: 900px) { #discover-grid { column-count: min(var(--discover-cols, 4), 3); } }
-@media (max-width: 600px) { #discover-grid { column-count: min(var(--discover-cols, 4), 2); } }
 .discover-card:hover {
   transform:  translate(-1px, -1px);
   box-shadow: 4px 4px 0 var(--sh-color);
@@ -113,11 +115,11 @@ html, body {
 .discover-card-img {
   width:      100%;
   display:    block;
-  min-height: 60px;
-  background: var(--surface2);
   object-fit: cover;
   cursor:     pointer;
 }
+
+#discover-grid:empty { min-height: 50vh; }
 
 .discover-card-meta {
   padding: 8px 10px 10px;

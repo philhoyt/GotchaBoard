@@ -1,3 +1,18 @@
+import '@fontsource/syne/700.css';
+import '@fontsource/dm-sans/400.css';
+import '@fontsource/dm-sans/500.css';
+import '../styles/main.scss';
+
+import { toggleTheme }    from './utils/theme.js';
+import { getTagColor }    from './utils/tagColor.js';
+import { attachTagSuggestions } from './utils/tagSuggest.js';
+import { calcColumnWidth, DEFAULT_CARD_WIDTH, initMasonry, layoutAfterImages } from './utils/grid.js';
+import { sweep }          from './animations.js';
+import { SelectionManager } from './multiselect.js';
+import { DragStack }      from './dragStack.js';
+import { BulkActionBar }  from './bulkActions.js';
+import { initImportModal } from './importModal.js';
+
 'use strict';
 
 const API = window.location.origin + '/api';
@@ -5,16 +20,16 @@ const API = window.location.origin + '/api';
 // ── State ──────────────────────────────────────────────────────────
 const state = {
   images:      [],
-  tags:        [],       // flat list with count, parent info
+  tags:        [],
   collections: [],
 
-  activeTags:       [],   // array of tag IDs (AND multi-filter)
+  activeTags:       [],
   activeCollection: null,
   showUntagged:     false,
   searchQuery:      '',
   sortOrder:        'saved_at_desc',
 
-  detailImageId:    null,
+  detailImageId: null,
 };
 
 // ── Utilities ──────────────────────────────────────────────────────
@@ -58,9 +73,8 @@ async function loadAll() {
   await Promise.all([loadImages(), loadTags(), loadCollections()]);
 }
 
-async function loadImages() {
+function buildImageQuery() {
   const params = new URLSearchParams();
-
   if (state.showUntagged) {
     params.set('untagged', '1');
   } else if (state.activeCollection) {
@@ -68,17 +82,21 @@ async function loadImages() {
   } else if (state.activeTags.length === 1) {
     params.set('tag_id', state.activeTags[0]);
   } else if (state.activeTags.length > 1) {
-    // Multi-tag AND — pass names
     const names = state.activeTags.map(id => {
       const t = state.tags.find(t => t.id === id);
       return t ? t.name : '';
     }).filter(Boolean);
     params.set('tags', names.join(','));
   }
-
   if (state.searchQuery) params.set('q', state.searchQuery);
+  return params.toString();
+}
 
-  const images = await apiFetch('/images' + (params.toString() ? '?' + params : ''));
+async function loadImages() {
+  const seq = ++_loadSeq;
+  const q = buildImageQuery();
+  const images = await apiFetch('/images' + (q ? '?' + q : ''));
+  if (seq !== _loadSeq) return;   // a newer call was made while we were waiting — discard
   if (state.sortOrder === 'saved_at_asc') images.reverse();
   state.images = images;
   renderGrid();
@@ -96,16 +114,43 @@ async function loadCollections() {
 }
 
 // ── Grid rendering ─────────────────────────────────────────────────
-function getEffectiveCols() {
-  const preferred = Number(localStorage.getItem('gotcha-grid-cols')) || 4;
-  const w = window.innerWidth;
-  if (w <= 600) return Math.min(preferred, 2);
-  if (w <= 900) return Math.min(preferred, 3);
-  return preferred;
+let msnry          = null;
+let currentCardWidth = DEFAULT_CARD_WIDTH;
+let layoutTimer    = null;
+let _loadSeq       = 0;   // monotonic counter — stale loadImages() responses are discarded
+let _detailSuggest      = null;
+let _addGotSuggest      = null;
+let _collectionModal    = null;
+let _collectionSuggest  = null;
+let _editingCollectionId = null;
+
+// Prefer requestIdleCallback so Masonry layout runs between frames (no forced-reflow
+// violation, no main-thread blocking during user interactions). Fall back to setTimeout
+// for browsers that don't support it, but keep a short deadline so the grid doesn't
+// stay mis-positioned for long.
+const _schedRIC  = window.requestIdleCallback
+  ? (fn) => requestIdleCallback(fn, { timeout: 500 })
+  : (fn) => setTimeout(fn, 100);
+const _cancelRIC = window.cancelIdleCallback || clearTimeout;
+
+function scheduleLayout() {
+  if (layoutTimer) return;
+  layoutTimer = _schedRIC(() => {
+    layoutTimer = null;
+    if (msnry) msnry.layout();
+  });
 }
 
-function shortestCol(colEls) {
-  return colEls.reduce((min, col) => col.scrollHeight < min.scrollHeight ? col : min);
+function updateCardWidth() {
+  const scroll = document.getElementById('grid-scroll');
+  const innerWidth = scroll.clientWidth - 24; // subtract 12px left + 12px right padding
+  const targetWidth = Number(localStorage.getItem('gotcha-card-width')) || DEFAULT_CARD_WIDTH;
+  const actualWidth = calcColumnWidth(innerWidth, targetWidth);
+  currentCardWidth  = actualWidth;
+  const grid = document.getElementById('image-grid');
+  grid.style.setProperty('--card-width', actualWidth + 'px');
+  grid.classList.toggle('compact-grid', actualWidth < 140);
+  return actualWidth;
 }
 
 function renderGrid() {
@@ -115,23 +160,28 @@ function renderGrid() {
   if (state.images.length === 0) {
     grid.style.display = 'none'; grid.innerHTML = '';
     empty.classList.add('visible');
+    if (msnry) { msnry.destroy(); msnry = null; }
     return;
   }
 
   grid.style.display = '';
   empty.classList.remove('visible');
+
+  if (layoutTimer) { _cancelRIC(layoutTimer); layoutTimer = null; }
+  if (msnry) { msnry.destroy(); msnry = null; }
   grid.innerHTML = '';
+  updateCardWidth();
 
-  const colEls = Array.from({ length: getEffectiveCols() }, () => {
-    const col = document.createElement('div');
-    col.className = 'grid-col';
-    grid.appendChild(col);
-    return col;
-  });
+  const sizer = document.createElement('div');
+  sizer.className = 'grid-sizer';
+  grid.appendChild(sizer);
 
-  state.images.forEach((image, idx) => {
-    shortestCol(colEls).appendChild(buildCard(image, idx));
-  });
+  state.images.forEach((image, idx) => grid.appendChild(buildCard(image, idx)));
+
+  msnry = initMasonry(grid, '.image-card');
+  // Belt-and-suspenders: after ALL images finish loading (or error), force one
+  // final Masonry layout so cards never end up overlapping or mis-positioned.
+  layoutAfterImages(grid, msnry);
 
   syncSelectionUI();
   renderActiveFilters();
@@ -146,9 +196,9 @@ function buildCard(image, idx) {
   const thumb = (image.thumbnail && image.thumbnail !== 'error' && image.thumbnail !== 'placeholder')
     ? `/thumbs/${image.thumbnail}` : null;
 
-  const tagBadges = (image.tags || []).slice(0, 3).map(name => {
+  const tagBadges = (image.tags || []).map(name => {
     const t     = state.tags.find(t => t.name === name);
-    const color = t?.color || (typeof getTagColor === 'function' ? getTagColor(name) : '');
+    const color = t?.color || getTagColor(name);
     const style = color ? `style="background:${esc(color)}"` : '';
     return `<span class="tag-badge" ${style}>${esc(name)}</span>`;
   }).join('');
@@ -156,18 +206,44 @@ function buildCard(image, idx) {
   let title = image.page_title;
   if (!title) { try { title = new URL(image.source_url).hostname; } catch (_) { title = ''; } }
 
+  // Use stored dimensions for an exact skeleton height — when the real image loads
+  // the card height won't change, so Masonry never needs to re-layout.
+  // Fall back to 1.3 aspect ratio for images that predate dimension storage.
+  const knownDimensions = image.width && image.height;
+  const aspectRatio = knownDimensions ? (image.height / image.width) : 1.3;
+  const placeholderHeight = Math.round(currentCardWidth * aspectRatio);
+
   card.innerHTML = `
     <div class="card-select-zone"><div class="card-checkbox"></div></div>
     <div class="card-inner">
-      ${thumb ? `<img src="${esc(thumb)}" alt="${esc(title)}" loading="lazy">` : '<div style="height:100px;background:#f3f4f6"></div>'}
+      <div class="card-image-wrap">
+        <div class="card-skeleton" style="height:${placeholderHeight}px"></div>
+        ${thumb ? `<img src="${esc(thumb)}" alt="${esc(title)}" loading="lazy">` : ''}
+      </div>
       <div class="card-meta">
         <div class="card-title">${esc(title)}</div>
-        ${tagBadges ? `<div class="card-badges">${tagBadges}</div>` : ''}
+        <div class="card-badges">${tagBadges}</div>
       </div>
     </div>
   `;
 
-  // Select zone click — toggle selection (no detail open)
+  if (thumb) {
+    const img = card.querySelector('img');
+    img.addEventListener('load', () => {
+      card.querySelector('.card-skeleton')?.remove();
+      img.classList.add('img-loaded');
+      // Only re-layout when dimensions were unknown (skeleton height was estimated).
+      // When dimensions are stored the skeleton is already the right height, so
+      // the card height doesn't change and Masonry doesn't need to reflow.
+      if (!knownDimensions) scheduleLayout();
+    });
+    img.addEventListener('error', () => {
+      const sk = card.querySelector('.card-skeleton');
+      if (sk) { sk.style.animation = 'none'; sk.style.background = 'var(--surface)'; }
+      if (!knownDimensions) scheduleLayout();
+    });
+  }
+
   card.querySelector('.card-select-zone').addEventListener('click', e => {
     e.stopPropagation();
     if (e.shiftKey && selection.lastIndex !== null) {
@@ -179,13 +255,11 @@ function buildCard(image, idx) {
     syncSelectionUI();
   });
 
-  // Card body click — open detail
   card.querySelector('.card-inner').addEventListener('click', e => {
     if (e.target.closest('.card-select-zone')) return;
     openDetail(image.id);
   });
 
-  // Drag — prime on mousedown of a selected card
   card.addEventListener('mousedown', e => {
     if (e.target.closest('.card-select-zone')) return;
     if (selection.has(image.id)) {
@@ -199,7 +273,6 @@ function buildCard(image, idx) {
 function syncSelectionUI() {
   const hasAny = selection.size > 0;
   document.getElementById('app').classList.toggle('any-selected', hasAny);
-
   document.querySelectorAll('.image-card').forEach(card => {
     card.classList.toggle('selected', selection.has(card.dataset.id));
   });
@@ -214,16 +287,12 @@ function renderTagList() {
   const children = state.tags.filter(t => t.parent_id);
 
   const childrenByParent = {};
-  children.forEach(c => {
-    (childrenByParent[c.parent_id] ||= []).push(c);
-  });
+  children.forEach(c => { (childrenByParent[c.parent_id] ||= []).push(c); });
 
   for (const parent of parents) {
     list.appendChild(buildTagItem(parent, false));
     const kids = childrenByParent[parent.id] || [];
-    for (const child of kids) {
-      list.appendChild(buildTagItem(child, true));
-    }
+    for (const child of kids) list.appendChild(buildTagItem(child, true));
   }
 }
 
@@ -232,17 +301,14 @@ function buildTagItem(tag, isChild) {
   li.className = 'tag-item' + (isChild ? ' child-tag' : '');
 
   const isActive = state.activeTags.includes(tag.id);
-  const isMulti  = state.activeTags.length > 1 && isActive;
-  if (isActive) li.classList.add(isMulti ? 'multi-active' : 'active');
+  if (isActive) li.classList.add('active');
   li.dataset.tagId = tag.id;
 
-  const tagColor = tag.color || (typeof getTagColor === 'function' ? getTagColor(tag.name) : '');
-  if (tagColor && !isActive) li.style.background = tagColor;
-  const dotStyle = '';
-  const dotClass = 'tag-dot';
+  const tagColor = tag.color || getTagColor(tag.name);
+  if (tagColor) li.style.background = tagColor;
 
   li.innerHTML = `
-    <span class="${dotClass}" ${dotStyle}></span>
+    <input type="checkbox" class="tag-check" ${isActive ? 'checked' : ''} />
     <span class="tag-name">${esc(tag.name)}</span>
     <span class="tag-count">${tag.count || 0}</span>
     <span class="tag-actions">
@@ -250,21 +316,19 @@ function buildTagItem(tag, isChild) {
     </span>
   `;
 
-  li.querySelector('.tag-name').addEventListener('click', e => {
-    if (e.ctrlKey || e.metaKey) {
-      // Multi-filter AND
-      if (state.activeTags.includes(tag.id)) {
-        state.activeTags = state.activeTags.filter(id => id !== tag.id);
-      } else {
-        state.activeTags = [...state.activeTags, tag.id];
-      }
+  // Prevent the browser from natively toggling the checkbox — renderTagList() sets correct state
+  li.querySelector('.tag-check').addEventListener('click', e => e.preventDefault());
+
+  li.addEventListener('click', e => {
+    if (e.target.closest('.tag-actions')) return;
+    if (state.activeTags.includes(tag.id)) {
+      state.activeTags = state.activeTags.filter(id => id !== tag.id);
     } else {
-      state.activeTags = state.activeTags[0] === tag.id && state.activeTags.length === 1
-        ? [] : [tag.id];
+      state.activeTags = [...state.activeTags, tag.id];
     }
     state.showUntagged = false;
     state.activeCollection = null;
-    document.getElementById('all-images-btn').classList.remove('active');
+    document.getElementById('all-images-btn').classList.toggle('active', state.activeTags.length === 0);
     document.getElementById('untagged-btn').classList.remove('active');
     renderTagList();
     renderCollections();
@@ -296,7 +360,10 @@ function renderCollections() {
     li.innerHTML = `
       <span class="collection-icon">◎</span>
       <span class="collection-name">${esc(col.name)}</span>
-      <button class="collection-delete" title="Delete">✕</button>
+      <span class="collection-actions">
+        <button class="collection-edit" title="Edit">✎</button>
+        <button class="collection-delete" title="Delete">✕</button>
+      </span>
     `;
 
     li.querySelector('.collection-name').addEventListener('click', () => {
@@ -308,6 +375,11 @@ function renderCollections() {
       renderCollections();
       renderTagList();
       loadImages();
+    });
+
+    li.querySelector('.collection-edit').addEventListener('click', e => {
+      e.stopPropagation();
+      openCollectionModal('edit', col);
     });
 
     li.querySelector('.collection-delete').addEventListener('click', async e => {
@@ -335,9 +407,7 @@ function renderActiveFilters() {
       if (!t) return;
       container.appendChild(buildFilterChip(`#${t.name}`, () => {
         state.activeTags = state.activeTags.filter(id => id !== tagId);
-        if (state.activeTags.length === 0) {
-          document.getElementById('all-images-btn').classList.add('active');
-        }
+        if (state.activeTags.length === 0) document.getElementById('all-images-btn').classList.add('active');
         renderTagList();
         loadImages();
       }));
@@ -384,14 +454,13 @@ function buildFilterChip(label, onRemove) {
 
 // ── Count badges ───────────────────────────────────────────────────
 async function updateCounts() {
-  // Total saved
-  const all = await apiFetch('/images').catch(() => []);
-  document.getElementById('all-images-btn').dataset.count = all.length;
-  document.getElementById('saved-count') && (document.getElementById('saved-count').textContent = `${all.length} saved`);
-
-  // Untagged count
-  const untagged = await apiFetch('/images?untagged=1').catch(() => []);
-  document.getElementById('untagged-btn').dataset.count = untagged.length;
+  try {
+    const { total, untagged } = await apiFetch('/images/counts');
+    document.getElementById('all-images-btn').dataset.count = total;
+    const savedEl = document.getElementById('saved-count');
+    if (savedEl) savedEl.textContent = `${total} saved`;
+    document.getElementById('untagged-btn').dataset.count = untagged;
+  } catch (_) {}
 }
 
 // ── Detail panel ───────────────────────────────────────────────────
@@ -410,13 +479,13 @@ async function openDetail(imageId) {
 }
 
 function buildDetailHTML(image) {
-  const saved = new Date(image.saved_at).toLocaleString();
-  const imgSrc = image.filename ? `/images/${image.filename}` : null;
+  const saved   = new Date(image.saved_at).toLocaleString();
+  const imgSrc  = image.filename ? `/images/${image.filename}` : null;
   const imageTags = image.tags || [];
 
   const tagPills = imageTags.map(name => {
     const t     = state.tags.find(t => t.name === name);
-    const color = t?.color || (typeof getTagColor === 'function' ? getTagColor(name) : '');
+    const color = t?.color || getTagColor(name);
     const style = color ? `style="background:${esc(color)}"` : '';
     return `<span class="detail-tag-pill" data-tag="${esc(name)}" ${style}>${esc(name)}<button class="detail-tag-remove" title="Remove tag">&times;</button></span>`;
   }).join('');
@@ -430,8 +499,8 @@ function buildDetailHTML(image) {
       <div class="detail-value-url"><a href="${esc(image.source_url)}" target="_blank" rel="noopener" title="${esc(image.source_url)}">${esc(image.source_url)}</a></div>
     </div>
     ${image.page_title ? `<div class="detail-field"><div class="detail-label">Page Title</div><div class="detail-value">${esc(image.page_title)}</div></div>` : ''}
-    ${image.page_url ? `<div class="detail-field"><div class="detail-label">Page URL</div><div class="detail-value-url"><a href="${esc(image.page_url)}" target="_blank" rel="noopener" title="${esc(image.page_url)}">${esc(image.page_url)}</a></div></div>` : ''}
-    ${image.pin_url ? `<div class="detail-field"><div class="detail-label">Pinterest Pin</div><div class="detail-value-url"><a href="${esc(image.pin_url)}" target="_blank" rel="noopener" title="${esc(image.pin_url)}">${esc(image.pin_url)}</a></div></div>` : ''}
+    ${image.page_url   ? `<div class="detail-field"><div class="detail-label">Page URL</div><div class="detail-value-url"><a href="${esc(image.page_url)}" target="_blank" rel="noopener" title="${esc(image.page_url)}">${esc(image.page_url)}</a></div></div>` : ''}
+    ${image.pin_url    ? `<div class="detail-field"><div class="detail-label">Pinterest Pin</div><div class="detail-value-url"><a href="${esc(image.pin_url)}" target="_blank" rel="noopener" title="${esc(image.pin_url)}">${esc(image.pin_url)}</a></div></div>` : ''}
     <div class="detail-field"><div class="detail-label">Saved</div><div class="detail-value">${esc(saved)}</div></div>
     <div class="detail-field">
       <div class="detail-label">Tags</div>
@@ -447,28 +516,51 @@ function buildDetailHTML(image) {
   `;
 }
 
-// ── Detail panel: collect current tags from pills ─────────────────
 function getDetailTags() {
   return [...document.querySelectorAll('#detail-tags-wrap .detail-tag-pill')]
     .map(el => el.dataset.tag);
 }
 
-// ── Detail panel: auto-save tags to server ────────────────────────
 async function saveDetailTags(imageId) {
+  const tags = getDetailTags();
   try {
-    await apiFetch(`/images/${imageId}`, { method: 'PATCH', body: JSON.stringify({ tags: getDetailTags() }) });
-    await Promise.all([loadImages(), loadTags()]);
+    await apiFetch(`/images/${imageId}`, { method: 'PATCH', body: JSON.stringify({ tags }) });
+    // Patch state + card DOM in-place — no grid re-render needed
+    const img = state.images.find(i => i.id === imageId);
+    if (img) img.tags = tags;
+    patchCardBadges(imageId, tags);
+    // Reload tags only (sidebar counts + new tag defs)
+    await loadTags();
   } catch (err) {
     toast('Failed to save tags');
   }
 }
 
-// ── Detail panel: add a tag pill dynamically ──────────────────────
+function patchCardBadges(imageId, tags) {
+  const card = document.querySelector(`.image-card[data-id="${imageId}"]`);
+  if (!card) return;
+  const badgeHtml = tags.map(name => {
+    const t     = state.tags.find(t => t.name === name);
+    const color = t?.color || getTagColor(name);
+    const style = color ? `style="background:${esc(color)}"` : '';
+    return `<span class="tag-badge" ${style}>${esc(name)}</span>`;
+  }).join('');
+  let badgesEl = card.querySelector('.card-badges');
+  if (badgesEl) {
+    badgesEl.innerHTML = badgeHtml;
+  } else if (badgeHtml) {
+    badgesEl = document.createElement('div');
+    badgesEl.className = 'card-badges';
+    badgesEl.innerHTML = badgeHtml;
+    card.querySelector('.card-meta')?.appendChild(badgesEl);
+  }
+}
+
 function addDetailTagPill(name, imageId) {
   const wrap  = document.getElementById('detail-tags-wrap');
   const input = document.getElementById('detail-add-tag');
   const t     = state.tags.find(t => t.name === name);
-  const color = t?.color || (typeof getTagColor === 'function' ? getTagColor(name) : '');
+  const color = t?.color || getTagColor(name);
 
   const pill = document.createElement('span');
   pill.className = 'detail-tag-pill';
@@ -484,7 +576,6 @@ function addDetailTagPill(name, imageId) {
 }
 
 function bindDetailEvents(image) {
-  // Remove tag — click × on any initially-rendered pill
   document.querySelectorAll('.detail-tag-remove').forEach(btn => {
     btn.addEventListener('click', () => {
       btn.closest('.detail-tag-pill').remove();
@@ -492,17 +583,26 @@ function bindDetailEvents(image) {
     });
   });
 
-  // Add tag — type in the inline input, press Enter
   const addInput = document.getElementById('detail-add-tag');
+
+  const commitDetailTag = (name) => {
+    if (!name || getDetailTags().includes(name)) return;
+    addDetailTagPill(name, image.id);
+    saveDetailTags(image.id);
+  };
+
+  _detailSuggest?.destroy();
+  _detailSuggest = attachTagSuggestions(addInput, () => state.tags, (name) => {
+    commitDetailTag(name);
+  });
+
   addInput.addEventListener('keydown', e => {
     if (e.key === 'Enter') {
       e.preventDefault();
       const val = addInput.value.trim();
       if (!val) return;
-      if (getDetailTags().includes(val)) { addInput.value = ''; return; }
-      addDetailTagPill(val, image.id);
+      commitDetailTag(val);
       addInput.value = '';
-      saveDetailTags(image.id);
     }
     if (e.key === 'Escape') addInput.blur();
   });
@@ -523,6 +623,7 @@ function closeDetail() {
   document.getElementById('detail-panel').classList.remove('open');
   document.getElementById('detail-overlay').classList.remove('open');
   state.detailImageId = null;
+  _detailSuggest?.destroy(); _detailSuggest = null;
 }
 
 // ── Tag management (inline) ────────────────────────────────────────
@@ -542,37 +643,193 @@ async function createTag(name) {
   } catch (err) { alert(`Failed to create tag: ${err.message}`); }
 }
 
-async function createCollection(name) {
+// ── Collection modal ───────────────────────────────────────────────
+function _createCollectionModal() {
+  const modal = document.createElement('div');
+  modal.id = 'collection-modal';
+  modal.hidden = true;
+  modal.innerHTML = `
+    <div id="collection-modal-backdrop"></div>
+    <div id="collection-modal-dialog" role="dialog" aria-modal="true">
+      <h3 id="collection-modal-title">New Collection</h3>
+      <div class="collection-form-row">
+        <input type="text" id="collection-name-input" placeholder="Collection name" maxlength="100" />
+      </div>
+      <div class="collection-form-row">
+        <label>Filter tags (AND — images must have all selected tags):</label>
+        <div class="detail-tags-wrap" id="collection-selected-tags"></div>
+        <div style="margin-top:6px">
+          <input type="text" class="detail-add-tag-input" id="collection-tag-input" placeholder="+ add tag" autocomplete="off" />
+        </div>
+      </div>
+      <p id="collection-match-count" class="collection-match-count"></p>
+      <div id="collection-modal-actions">
+        <button id="collection-modal-cancel" class="btn">Cancel</button>
+        <button id="collection-modal-save" class="btn btn-primary" disabled>Create</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  modal.querySelector('#collection-modal-backdrop').addEventListener('click', closeCollectionModal);
+  modal.querySelector('#collection-modal-cancel').addEventListener('click', closeCollectionModal);
+  modal.querySelector('#collection-modal-save').addEventListener('click', saveCollection);
+  modal.querySelector('#collection-name-input').addEventListener('input', updateCollectionSaveBtn);
+  modal.querySelector('#collection-tag-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const val = e.target.value.trim();
+      if (val && !getCollectionTagNames().includes(val)) {
+        addCollectionTagPill(val);
+        updateCollectionSaveBtn();
+        updateCollectionMatchCount();
+      }
+      e.target.value = '';
+    }
+    if (e.key === 'Escape') closeCollectionModal();
+  });
+  modal.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeCollectionModal();
+  });
+
+  return modal;
+}
+
+function openCollectionModal(mode, col = null) {
+  _editingCollectionId = mode === 'edit' ? col.id : null;
+
+  if (!_collectionModal) _collectionModal = _createCollectionModal();
+
+  const isEdit = mode === 'edit';
+  _collectionModal.querySelector('#collection-modal-title').textContent = isEdit ? 'Edit Collection' : 'New Collection';
+  const saveBtn = _collectionModal.querySelector('#collection-modal-save');
+  saveBtn.textContent = isEdit ? 'Save' : 'Create';
+
+  const nameInput = _collectionModal.querySelector('#collection-name-input');
+  nameInput.value = isEdit ? col.name : '';
+
+  const selectedTags = _collectionModal.querySelector('#collection-selected-tags');
+  selectedTags.innerHTML = '';
+  if (isEdit) {
+    const tq = col.tag_query || { tags: [] };
+    (tq.tags || []).forEach(name => addCollectionTagPill(name));
+  }
+
+  _collectionSuggest?.destroy();
+  const tagInput = _collectionModal.querySelector('#collection-tag-input');
+  tagInput.value = '';
+  _collectionSuggest = attachTagSuggestions(tagInput, () => state.tags, name => {
+    if (getCollectionTagNames().includes(name)) return;
+    addCollectionTagPill(name);
+    tagInput.value = '';
+    updateCollectionSaveBtn();
+    updateCollectionMatchCount();
+  });
+
+  _collectionModal.hidden = false;
+  updateCollectionSaveBtn();
+  updateCollectionMatchCount();
+  setTimeout(() => nameInput.focus(), 50);
+}
+
+function closeCollectionModal() {
+  if (_collectionModal) _collectionModal.hidden = true;
+  _collectionSuggest?.destroy();
+  _collectionSuggest = null;
+  _editingCollectionId = null;
+}
+
+function addCollectionTagPill(name) {
+  const wrap = _collectionModal.querySelector('#collection-selected-tags');
+  const t = state.tags.find(t => t.name === name);
+  const color = t?.color || getTagColor(name);
+  const pill = document.createElement('span');
+  pill.className = 'detail-tag-pill';
+  pill.dataset.tag = name;
+  pill.style.background = color;
+  pill.innerHTML = `${esc(name)}<button class="detail-tag-remove" title="Remove">&times;</button>`;
+  pill.querySelector('.detail-tag-remove').addEventListener('click', () => {
+    pill.remove();
+    updateCollectionSaveBtn();
+    updateCollectionMatchCount();
+  });
+  wrap.appendChild(pill);
+}
+
+function getCollectionTagNames() {
+  if (!_collectionModal) return [];
+  return [..._collectionModal.querySelectorAll('#collection-selected-tags .detail-tag-pill')].map(p => p.dataset.tag);
+}
+
+function updateCollectionSaveBtn() {
+  const name = _collectionModal?.querySelector('#collection-name-input')?.value.trim();
+  const tags = getCollectionTagNames();
+  const btn = _collectionModal?.querySelector('#collection-modal-save');
+  if (btn) btn.disabled = !name || tags.length === 0;
+}
+
+async function updateCollectionMatchCount() {
+  const names = getCollectionTagNames();
+  const el = _collectionModal?.querySelector('#collection-match-count');
+  if (!el) return;
+  if (names.length === 0) { el.textContent = ''; return; }
   try {
-    await apiFetch('/smart-collections', {
-      method: 'POST',
-      body: JSON.stringify({ name, tag_query: { operator: 'AND', tags: [] } })
-    });
+    const images = await apiFetch('/images?tags_and=' + encodeURIComponent(names.join(',')));
+    const count = Array.isArray(images) ? images.length : 0;
+    el.textContent = `${count} Got${count !== 1 ? 's' : ''} match this filter`;
+  } catch (_) { el.textContent = ''; }
+}
+
+async function saveCollection() {
+  const name = _collectionModal.querySelector('#collection-name-input').value.trim();
+  const tags = getCollectionTagNames();
+  if (!name || tags.length === 0) return;
+
+  try {
+    if (_editingCollectionId) {
+      await apiFetch(`/smart-collections/${_editingCollectionId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ name, tag_query: { operator: 'AND', tags } })
+      });
+      if (state.activeCollection === _editingCollectionId) await loadImages();
+    } else {
+      await apiFetch('/smart-collections', {
+        method: 'POST',
+        body: JSON.stringify({ name, tag_query: { operator: 'AND', tags } })
+      });
+    }
+    closeCollectionModal();
     await loadCollections();
-  } catch (err) { alert(`Failed to create collection: ${err.message}`); }
+  } catch (err) { alert(`Failed to save collection: ${err.message}`); }
 }
 
 // ── Bulk action handler ────────────────────────────────────────────
-async function handleBulkAction({ action, ids, tags }) {
+async function handleBulkAction({ action, ids, tags = [], add = [], remove = [] }) {
   try {
     await apiFetch('/gots/bulk', {
       method: 'POST',
-      body: JSON.stringify({ ids, action, tags })
+      body: JSON.stringify({ ids, action, tags, add, remove })
     });
 
-    // Sweep animation for deleted cards
     if (action === 'delete') {
       const cards = [...document.querySelectorAll('.image-card')]
         .filter(c => ids.includes(c.dataset.id));
-      await Promise.all(cards.map((c, i) => Animations.sweep(c, i * 40).finished));
+      await Promise.all(cards.map((c, i) => sweep(c, i * 40).finished));
+      selection.clear();
+      toast(`Deleted ${ids.length} Gots`);
+      await Promise.all([loadImages(), loadTags()]);
+    } else {
+      // Tag operations — patch only the affected cards, no grid rebuild
+      const q = buildImageQuery();
+      const fresh = await apiFetch('/images' + (q ? '?' + q : ''));
+      for (const id of ids) {
+        const img = fresh.find(i => i.id === id);
+        if (img) patchCardBadges(id, img.tags);
+      }
+      selection.clear();
+      toast(`Updated ${ids.length} Gots`);
+      await loadTags();
     }
-
-    selection.clear();
-    toast(action === 'delete'
-      ? `Deleted ${ids.length} Gots`
-      : `Updated ${ids.length} Gots`
-    );
-    await Promise.all([loadImages(), loadTags()]);
   } catch (err) { alert(`Bulk action failed: ${err.message}`); }
 }
 
@@ -586,37 +843,51 @@ async function handleDrop(tagId, imageIds) {
       ].filter(Boolean) })
     });
     const tagName = state.tags.find(t => t.id === tagId)?.name || tagId;
+
+    // Patch only affected cards — no grid rebuild
+    const q = buildImageQuery();
+    const fresh = await apiFetch('/images' + (q ? '?' + q : ''));
+    for (const id of imageIds) {
+      const img = fresh.find(i => i.id === id);
+      if (img) patchCardBadges(id, img.tags);
+    }
+
     toast(`${imageIds.length} Got${imageIds.length > 1 ? 's' : ''} tagged → ${tagName}`);
     selection.clear();
-    await Promise.all([loadImages(), loadTags()]);
+    await loadTags();
   } catch (err) { alert(`Tag drop failed: ${err.message}`); }
 }
 
 // ── Module instances ───────────────────────────────────────────────
 const selection = new SelectionManager();
-const bulkBar   = new BulkActionBar({ selection, onAction: handleBulkAction });
+const bulkBar   = new BulkActionBar({
+  selection,
+  onAction:    handleBulkAction,
+  getTags:     () => state.images,  // images carry .tags[], used by manage_tags prompt
+  getTagDefs:  () => state.tags,    // tag definitions with .color, used for autocomplete
+});
 const dragStack = new DragStack({
   selection,
-  onDrop: handleDrop,
+  onDrop:         handleDrop,
   getDropTargets: () => document.querySelectorAll('[data-tag-id]')
 });
 
-// Sync card checkboxes when selection changes from bulk bar
 selection.addEventListener('change', () => syncSelectionUI());
 
 // ── Grid scale ─────────────────────────────────────────────────────
-function setGridCols(n) {
+function setCardWidth(w) {
   document.querySelectorAll('.grid-scale-btn').forEach(btn => {
-    btn.classList.toggle('active', Number(btn.dataset.cols) === n);
+    btn.classList.toggle('active', Number(btn.dataset.cardWidth) === w);
   });
-  localStorage.setItem('gotcha-grid-cols', n);
-  renderGrid();
+  localStorage.setItem('gotcha-card-width', w);
+  updateCardWidth();
+  if (msnry) msnry.layout();
 }
 
 // ── Add Got modal ──────────────────────────────────────────────────
 function openAddGotModal() {
-  const modal   = document.getElementById('add-got-modal');
-  const dialog  = document.getElementById('add-got-dialog');
+  const modal  = document.getElementById('add-got-modal');
+  const dialog = document.getElementById('add-got-dialog');
   let activeMode = 'url';
   let uploadFile = null;
 
@@ -672,7 +943,6 @@ function openAddGotModal() {
   modal.style.display = 'flex';
   document.getElementById('add-got-url').focus();
 
-  // ── Tab switching
   dialog.querySelectorAll('.add-got-tab').forEach(tab => {
     tab.addEventListener('click', () => {
       activeMode = tab.dataset.mode;
@@ -682,7 +952,6 @@ function openAddGotModal() {
     });
   });
 
-  // ── Tag pill helpers
   const getModalTags = () =>
     [...dialog.querySelectorAll('#add-got-tags-wrap .detail-tag-pill')].map(el => el.dataset.tag);
 
@@ -691,7 +960,7 @@ function openAddGotModal() {
     const input = document.getElementById('add-got-tag-input');
     if (getModalTags().includes(name)) return;
     const t     = state.tags.find(t => t.name === name);
-    const color = t?.color || (typeof getTagColor === 'function' ? getTagColor(name) : '');
+    const color = t?.color || getTagColor(name);
     const pill  = document.createElement('span');
     pill.className   = 'detail-tag-pill';
     pill.dataset.tag = name;
@@ -701,7 +970,13 @@ function openAddGotModal() {
     wrap.insertBefore(pill, input);
   };
 
-  document.getElementById('add-got-tag-input').addEventListener('keydown', e => {
+  const addGotTagInput = document.getElementById('add-got-tag-input');
+  _addGotSuggest?.destroy();
+  _addGotSuggest = attachTagSuggestions(addGotTagInput, () => state.tags, (name) => {
+    addModalPill(name);
+  });
+
+  addGotTagInput.addEventListener('keydown', e => {
     if (e.key === 'Enter') {
       e.preventDefault();
       const val = e.target.value.trim();
@@ -709,19 +984,17 @@ function openAddGotModal() {
     }
   });
 
-  // ── URL input: Enter triggers save
   document.getElementById('add-got-url').addEventListener('keydown', e => {
     if (e.key === 'Enter') { e.preventDefault(); doSave(); }
   });
 
-  // ── File drop zone
-  const dropzone = document.getElementById('add-got-dropzone');
+  const dropzone  = document.getElementById('add-got-dropzone');
   const fileInput = document.getElementById('add-got-file');
 
   const setFile = (file) => {
     if (!file || !file.type.startsWith('image/')) return;
     uploadFile = file;
-    const url  = URL.createObjectURL(file);
+    const url = URL.createObjectURL(file);
     dropzone.innerHTML = `<img src="${url}" alt="preview"><input type="file" id="add-got-file" accept="image/*" style="display:none">`;
     dropzone.querySelector('#add-got-file').addEventListener('change', e => setFile(e.target.files[0]));
   };
@@ -736,7 +1009,6 @@ function openAddGotModal() {
     setFile(e.dataTransfer.files[0]);
   });
 
-  // ── Save
   const showError = (msg) => { document.getElementById('add-got-error').textContent = msg; };
 
   const doSave = async () => {
@@ -746,12 +1018,12 @@ function openAddGotModal() {
     const notes   = document.getElementById('add-got-notes').value.trim() || null;
 
     if (activeMode === 'url') {
-      const source_url  = document.getElementById('add-got-url').value.trim();
-      const page_title  = document.getElementById('add-got-page-title').value.trim() || null;
-      const page_url    = document.getElementById('add-got-page-url').value.trim() || null;
+      const source_url = document.getElementById('add-got-url').value.trim();
+      const page_title = document.getElementById('add-got-page-title').value.trim() || null;
+      const page_url   = document.getElementById('add-got-page-url').value.trim() || null;
       if (!source_url) { showError('Image URL is required.'); return; }
 
-      saveBtn.disabled   = true;
+      saveBtn.disabled    = true;
       saveBtn.textContent = 'Saving…';
       try {
         await apiFetch('/images/save', {
@@ -763,13 +1035,13 @@ function openAddGotModal() {
         toast('Got saved!');
       } catch (err) {
         showError(err.message);
-        saveBtn.disabled   = false;
+        saveBtn.disabled    = false;
         saveBtn.textContent = 'Save Got';
       }
     } else {
       if (!uploadFile) { showError('Please select an image file.'); return; }
 
-      saveBtn.disabled   = true;
+      saveBtn.disabled    = true;
       saveBtn.textContent = 'Saving…';
       try {
         const formData = new FormData();
@@ -787,7 +1059,7 @@ function openAddGotModal() {
         toast('Got saved!');
       } catch (err) {
         showError(err.message);
-        saveBtn.disabled   = false;
+        saveBtn.disabled    = false;
         saveBtn.textContent = 'Save Got';
       }
     }
@@ -802,11 +1074,53 @@ function closeAddGotModal() {
   const modal = document.getElementById('add-got-modal');
   modal.style.display = 'none';
   document.getElementById('add-got-dialog').innerHTML = '';
+  _addGotSuggest?.destroy(); _addGotSuggest = null;
+}
+
+// ── Settings helpers ───────────────────────────────────────────────
+function openSettings() {
+  document.getElementById('settings-panel').style.display   = '';
+  document.getElementById('settings-overlay').style.display = '';
+  const themeBtn = document.getElementById('theme-toggle');
+  if (themeBtn && themeBtn.classList.contains('ghost-btn')) {
+    themeBtn.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀ Light mode' : '☾ Dark mode';
+  }
+}
+
+function closeSettings() {
+  document.getElementById('settings-panel').style.display   = 'none';
+  document.getElementById('settings-overlay').style.display = 'none';
+  document.getElementById('delete-all-confirm').style.display = 'none';
+  document.getElementById('delete-all-initial').style.display = '';
+}
+
+// ── Export / Import ────────────────────────────────────────────────
+function exportData() {
+  window.location.href = API.replace('/api', '') + '/api/transfer/export';
+}
+
+async function importData(input) {
+  const file = input.files[0];
+  if (!file) return;
+  input.value = '';
+
+  const form = new FormData();
+  form.append('file', file);
+
+  try {
+    toast('Importing…');
+    const res  = await fetch(`${API}/transfer/import`, { method: 'POST', body: form });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Import failed');
+    toast(data.message || 'Import complete — reloading…');
+    setTimeout(() => window.location.reload(), 1500);
+  } catch (err) {
+    toast('Import failed: ' + err.message);
+  }
 }
 
 // ── Event listeners ────────────────────────────────────────────────
 function bindEventListeners() {
-  // All Gots
   document.getElementById('all-images-btn').addEventListener('click', () => {
     state.activeTags = [];
     state.activeCollection = null;
@@ -818,7 +1132,6 @@ function bindEventListeners() {
     loadImages();
   });
 
-  // Untagged
   document.getElementById('untagged-btn').addEventListener('click', () => {
     state.showUntagged = !state.showUntagged;
     state.activeTags = [];
@@ -830,19 +1143,16 @@ function bindEventListeners() {
     loadImages();
   });
 
-  // Search
   document.getElementById('search-input').addEventListener('input', debounce(e => {
     state.searchQuery = e.target.value.trim();
     loadImages();
   }, 300));
 
-  // Sort
   document.getElementById('sort-select').addEventListener('change', e => {
     state.sortOrder = e.target.value;
     loadImages();
   });
 
-  // Select all
   document.getElementById('select-all-btn').addEventListener('click', () => {
     if (selection.size === state.images.length) {
       selection.clear();
@@ -852,7 +1162,6 @@ function bindEventListeners() {
     syncSelectionUI();
   });
 
-  // New tag form
   document.getElementById('new-tag-btn').addEventListener('click', () => {
     const form = document.getElementById('new-tag-form');
     form.style.display = form.style.display === 'none' ? '' : 'none';
@@ -874,26 +1183,28 @@ function bindEventListeners() {
     if (e.key === 'Escape') document.getElementById('new-tag-form').style.display = 'none';
   });
 
-  // New collection button
   document.getElementById('new-collection-btn').addEventListener('click', () => {
-    const name = prompt('Collection name:');
-    if (name?.trim()) createCollection(name.trim());
+    openCollectionModal('create');
   });
 
-  // Grid scale buttons
   document.querySelectorAll('.grid-scale-btn').forEach(btn => {
-    btn.addEventListener('click', () => setGridCols(Number(btn.dataset.cols)));
+    btn.addEventListener('click', () => setCardWidth(Number(btn.dataset.cardWidth)));
   });
 
-  // Add Got button
   document.getElementById('add-got-btn').addEventListener('click', openAddGotModal);
 
-  // Settings panel
   document.getElementById('settings-btn').addEventListener('click', openSettings);
   document.getElementById('settings-close').addEventListener('click', closeSettings);
   document.getElementById('settings-overlay').addEventListener('click', closeSettings);
 
-  // Delete all Gots
+  // Inline handlers converted to addEventListener
+  document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
+  document.querySelector('[data-action="export"]')?.addEventListener('click', exportData);
+  // Backup / Restore buttons
+  document.querySelector('.export-btn')?.addEventListener('click', exportData);
+  const restoreInput = document.querySelector('.restore-input');
+  if (restoreInput) restoreInput.addEventListener('change', e => importData(e.target));
+
   document.getElementById('delete-all-btn').addEventListener('click', () => {
     document.getElementById('delete-all-initial').style.display = 'none';
     document.getElementById('delete-all-confirm').style.display = '';
@@ -904,7 +1215,7 @@ function bindEventListeners() {
   });
   document.getElementById('delete-all-confirm-btn').addEventListener('click', async () => {
     const btn = document.getElementById('delete-all-confirm-btn');
-    btn.disabled = true;
+    btn.disabled    = true;
     btn.textContent = 'Deleting…';
     try {
       const res = await apiFetch('/images', { method: 'DELETE' });
@@ -916,12 +1227,11 @@ function bindEventListeners() {
     } catch (err) {
       toast('Delete failed: ' + err.message);
     } finally {
-      btn.disabled = false;
+      btn.disabled    = false;
       btn.textContent = 'Yes, delete all';
     }
   });
 
-  // Detail close
   document.getElementById('detail-close').addEventListener('click', closeDetail);
   document.getElementById('detail-overlay').addEventListener('click', closeDetail);
   document.addEventListener('keydown', e => {
@@ -933,40 +1243,24 @@ function bindEventListeners() {
 }
 
 // ── Init ───────────────────────────────────────────────────────────
-function openSettings() {
-  document.getElementById('settings-panel').style.display  = '';
-  document.getElementById('settings-overlay').style.display = '';
-  // Sync theme toggle label to current theme
-  const themeBtn = document.getElementById('theme-toggle');
-  if (themeBtn && themeBtn.classList.contains('ghost-btn')) {
-    themeBtn.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀ Light mode' : '☾ Dark mode';
-  }
-}
-
-function closeSettings() {
-  document.getElementById('settings-panel').style.display  = 'none';
-  document.getElementById('settings-overlay').style.display = 'none';
-  // Reset delete confirmation state
-  document.getElementById('delete-all-confirm').style.display = 'none';
-  document.getElementById('delete-all-initial').style.display = '';
-}
-
 document.addEventListener('DOMContentLoaded', () => {
   bindEventListeners();
+  initImportModal({ onDone: loadAll });
 
-  const savedCols = localStorage.getItem('gotcha-grid-cols');
-  if (savedCols) {
+  const savedCardWidth = localStorage.getItem('gotcha-card-width');
+  if (savedCardWidth) {
     document.querySelectorAll('.grid-scale-btn').forEach(btn => {
-      btn.classList.toggle('active', Number(btn.dataset.cols) === Number(savedCols));
+      btn.classList.toggle('active', Number(btn.dataset.cardWidth) === Number(savedCardWidth));
     });
-    localStorage.setItem('gotcha-grid-cols', savedCols);
   }
 
-  // Re-render grid on resize so responsive column caps take effect
   let resizeTimer;
   window.addEventListener('resize', () => {
     clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(renderGrid, 150);
+    resizeTimer = setTimeout(() => {
+      updateCardWidth();
+      if (msnry) msnry.layout();
+    }, 150);
   });
 
   loadAll().catch(() => {
@@ -979,28 +1273,3 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('image-grid').style.display = '';
   });
 });
-
-// ── Export / Import ────────────────────────────────────────────────
-window.exportData = function () {
-  window.location.href = API.replace('/api', '') + '/api/transfer/export';
-};
-
-window.importData = async function (input) {
-  const file = input.files[0];
-  if (!file) return;
-  input.value = '';
-
-  const form = new FormData();
-  form.append('file', file);
-
-  try {
-    toast('Importing…');
-    const res = await fetch(`${API}/transfer/import`, { method: 'POST', body: form });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Import failed');
-    toast(data.message || 'Import complete — reloading…');
-    setTimeout(() => window.location.reload(), 1500);
-  } catch (err) {
-    toast('Import failed: ' + err.message);
-  }
-};

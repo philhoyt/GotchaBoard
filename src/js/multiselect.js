@@ -1,16 +1,15 @@
 'use strict';
 
-// SelectionManager — tracks which images are selected, emits change events
-class SelectionManager extends EventTarget {
+export class SelectionManager extends EventTarget {
   constructor() {
     super();
-    this._selected = new Set();
+    this._selected  = new Set();
     this._lastIndex = null;
   }
 
   get size() { return this._selected.size; }
-  get ids() { return [...this._selected]; }
-  has(id) { return this._selected.has(id); }
+  get ids()  { return [...this._selected]; }
+  has(id)    { return this._selected.has(id); }
 
   toggle(id, index) {
     if (this._selected.has(id)) {
@@ -55,5 +54,3 @@ class SelectionManager extends EventTarget {
     this.dispatchEvent(new CustomEvent('change', { detail: { ids: this.ids, size: this.size } }));
   }
 }
-
-window.SelectionManager = SelectionManager;
