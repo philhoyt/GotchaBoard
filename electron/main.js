@@ -18,15 +18,27 @@ const STORAGE_ROOT = IS_PACKAGED
 
 process.env.GOTCHA_STORAGE = STORAGE_ROOT;
 
-// ── Find a free port ───────────────────────────────────────────────
+// ── Port selection ─────────────────────────────────────────────────
+// Use a fixed port so localStorage origin stays stable across launches
+// (random ports = new origin each launch = lost theme/prefs every open).
+// Fall back to a random free port only if the fixed one is in use.
+const PREFERRED_PORT = 47315;
+
 function getFreePort() {
   return new Promise((resolve, reject) => {
     const srv = net.createServer();
-    srv.listen(0, '127.0.0.1', () => {
-      const { port } = srv.address();
-      srv.close(() => resolve(port));
+    srv.listen(PREFERRED_PORT, '127.0.0.1', () => {
+      srv.close(() => resolve(PREFERRED_PORT));
     });
-    srv.on('error', reject);
+    srv.on('error', () => {
+      // Fixed port busy — fall back to OS-assigned port
+      const fallback = net.createServer();
+      fallback.listen(0, '127.0.0.1', () => {
+        const { port } = fallback.address();
+        fallback.close(() => resolve(port));
+      });
+      fallback.on('error', reject);
+    });
   });
 }
 
