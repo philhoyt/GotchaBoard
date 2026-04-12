@@ -179,7 +179,7 @@ body {
 
 .tag-count {
   font-size:    11px;
-  color:        var(--ink-dim);
+  color:        var(--ink);
   background:   var(--surface2);
   padding:      2px 7px;
   border-radius: 4px;

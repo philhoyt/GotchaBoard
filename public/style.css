@@ -169,7 +169,7 @@ section {
 .tag-name  { flex: 1; font-size: 12px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tag-count {
   font-size:    10px;
-  color:        var(--ink-dim);
+  color:        var(--ink);
   background:   var(--surface2);
   padding:      1px 5px;
   border-radius: 0;
@@ -217,13 +217,36 @@ section {
 
 #topbar {
   display:       flex;
-  align-items:   center;
+  align-items:   stretch;
   gap:           8px;
   padding:       10px 16px;
   background:    var(--bg);
   border-bottom: var(--bd);
   flex-shrink:   0;
+  -webkit-app-region: drag;
 }
+
+/* Interactive elements inside the drag region must opt out */
+#topbar button,
+#topbar input,
+#topbar select,
+#topbar a {
+  -webkit-app-region: no-drag;
+}
+
+/* Sidebar header is also draggable (traffic lights live there on Mac) */
+#sidebar-header {
+  -webkit-app-region: drag;
+}
+#sidebar-header a,
+#sidebar-header button {
+  -webkit-app-region: no-drag;
+}
+
+/* ── Electron titlebar offset (macOS traffic lights) ──────────── */
+/* Only applied when running inside the Electron shell */
+.electron-app #sidebar-header { padding-top: 42px; }
+.electron-app #topbar         { padding-top: 38px; }
 #search-input {
   flex:      1;
   padding:   7px 12px;

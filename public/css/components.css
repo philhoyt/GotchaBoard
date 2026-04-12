@@ -403,10 +403,11 @@
   background:  var(--bg);
   color:       var(--ink);
   border-radius: 0;
+  box-shadow: 2px 2px 0 var(--sh-color);
 }
 #search-input:focus {
   outline:    none;
-  box-shadow: 2px 2px 0 var(--sh-color);
+  box-shadow: 2px 2px 0 var(--color-lemon);
 }
 #search-input::placeholder { color: var(--ink-dimmer); }
 
@@ -424,6 +425,7 @@
   white-space: nowrap;
   transition:  transform 0.1s ease, box-shadow 0.1s ease, background 0.1s ease, color 0.1s ease;
   box-shadow:  var(--sh-sm);
+  text-decoration: none;
 }
 .topbar-action-btn:hover {
   background: var(--color-lemon);
@@ -442,5 +444,6 @@
   background:  var(--bg);
   color:       var(--ink);
   border-radius: 0;
+  box-shadow: 2px 2px 0 var(--sh-color);
 }
-#sort-select:focus { outline: none; box-shadow: 2px 2px 0 var(--sh-color); }
+#sort-select:focus { outline: none; box-shadow: 2px 2px 0 var(--color-lemon); }

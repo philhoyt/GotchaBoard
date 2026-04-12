@@ -4,8 +4,10 @@ const cors = require('cors');
 const path = require('path');
 const multer = require('multer');
 
+const STORAGE_DIR = process.env.GOTCHA_STORAGE || path.join(__dirname, '..', 'storage');
+
 const upload = multer({
-  dest: path.join(__dirname, '..', 'storage', 'temp'),
+  dest: path.join(STORAGE_DIR, 'temp'),
   limits: { fileSize: 50 * 1024 * 1024 },
 });
 
@@ -16,6 +18,7 @@ const tagsRouter             = require('./routes/tags');
 const bulkRouter             = require('./routes/bulk');
 const smartCollectionsRouter = require('./routes/smartCollections');
 const discoverRouter         = require('./routes/discover');
+const transferRouter         = require('./routes/transfer');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -32,8 +35,8 @@ app.use(cors({
 
 app.use(express.json());
 
-app.use('/images', express.static(path.join(__dirname, '..', 'storage', 'images')));
-app.use('/thumbs', express.static(path.join(__dirname, '..', 'storage', 'thumbs')));
+app.use('/images', express.static(path.join(STORAGE_DIR, 'images')));
+app.use('/thumbs', express.static(path.join(STORAGE_DIR, 'thumbs')));
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
 app.post('/api/images/upload', upload.single('image'), (req, res, next) => imagesRouter.handleUpload(req, res, next));
@@ -42,9 +45,12 @@ app.use('/api/tags',              tagsRouter);
 app.use('/api/gots/bulk',         bulkRouter);
 app.use('/api/smart-collections', smartCollectionsRouter);
 app.use('/api/discover',          discoverRouter);
+app.use('/api/transfer',          transferRouter);
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`GotchaBoard running at http://localhost:${PORT}`);
   const { startJobs } = require('./jobs/discoverJob');
   startJobs();
 });
+
+module.exports = { app, server, PORT };

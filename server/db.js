@@ -3,8 +3,8 @@ const path = require('path');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 
-const ROOT = path.join(__dirname, '..');
-const STORAGE_DIR = path.join(ROOT, 'storage');
+// In dev: ./storage/ (project root). In packaged Electron: userData/storage/.
+const STORAGE_DIR = process.env.GOTCHA_STORAGE || path.join(__dirname, '..', 'storage');
 const IMAGES_DIR = path.join(STORAGE_DIR, 'images');
 const THUMBS_DIR = path.join(STORAGE_DIR, 'thumbs');
 const DB_PATH = path.join(STORAGE_DIR, 'gotchaboard.db');

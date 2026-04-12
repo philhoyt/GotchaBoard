@@ -1,6 +1,6 @@
 'use strict';
 
-const API = 'http://localhost:3000/api';
+const API = window.location.origin + '/api';
 
 // ── State ──────────────────────────────────────────────────────────
 const state = {
@@ -898,3 +898,28 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('image-grid').style.display = '';
   });
 });
+
+// ── Export / Import ────────────────────────────────────────────────
+window.exportData = function () {
+  window.location.href = API.replace('/api', '') + '/api/transfer/export';
+};
+
+window.importData = async function (input) {
+  const file = input.files[0];
+  if (!file) return;
+  input.value = '';
+
+  const form = new FormData();
+  form.append('file', file);
+
+  try {
+    showToast('Importing…');
+    const res = await fetch(`${API}/transfer/import`, { method: 'POST', body: form });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Import failed');
+    showToast(data.message || 'Import complete — reloading…');
+    setTimeout(() => window.location.reload(), 1500);
+  } catch (err) {
+    showToast('Import failed: ' + err.message);
+  }
+};

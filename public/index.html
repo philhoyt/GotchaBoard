@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GotchaBoard</title>
+  <link rel="icon" type="image/png" href="/icon.png">
 
   <!-- Fonts first — prevents FOUT -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/syne@5/700.css">
@@ -85,6 +86,8 @@
           <button class="grid-scale-btn" data-cols="8" title="8 columns">XXS</button>
         </div>
         <button id="select-all-btn" class="icon-btn" title="Select all">☑</button>
+        <button id="export-btn" class="icon-btn" title="Export all data" onclick="exportData()">↓</button>
+        <label id="import-btn" class="icon-btn" title="Import data" style="cursor:pointer">↑<input type="file" accept=".gotcha,.zip" style="display:none" onchange="importData(this)"></label>
         <button id="theme-toggle" class="icon-btn" title="Toggle theme" onclick="toggleTheme()">☾</button>
       </div>
 

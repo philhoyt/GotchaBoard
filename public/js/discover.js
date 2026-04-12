@@ -1,6 +1,6 @@
 'use strict';
 
-const API = 'http://localhost:3000/api';
+const API = window.location.origin + '/api';
 
 // ── Utilities ──────────────────────────────────────────────────────
 function esc(s) {

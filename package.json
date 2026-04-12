@@ -2,16 +2,20 @@
   "name": "gotchaboard",
   "version": "1.0.0",
   "description": "Self-hosted local image bookmarking tool",
-  "main": "server/index.js",
+  "main": "electron/main.js",
   "scripts": {
-    "start": "node server/index.js",
-    "dev": "node --watch server/index.js",
-    "import:pinterest": "node import/pinterest.js"
+    "start": "electron-rebuild -f -w better-sqlite3 && codesign --force --sign - node_modules/better-sqlite3/build/Release/better_sqlite3.node && electron .",
+    "start:server": "npm rebuild && node server/index.js",
+    "dev": "npm rebuild && node --watch server/index.js",
+    "import:pinterest": "node import/pinterest.js",
+    "pack": "electron-builder --dir",
+    "dist": "electron-rebuild -f -w better-sqlite3 && codesign --force --sign - node_modules/better-sqlite3/build/Release/better_sqlite3.node && electron-builder --config.npmRebuild=false",
+    "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.88.0",
     "adm-zip": "^0.5.10",
-    "better-sqlite3": "^9.4.3",
+    "better-sqlite3": "^12.8.0",
     "cli-progress": "^3.12.0",
     "cors": "^2.8.5",
     "csv-parse": "^5.5.0",
@@ -22,5 +26,55 @@
     "puppeteer": "^22.0.0",
     "sharp": "^0.33.3",
     "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "electron": "^35.7.5",
+    "electron-builder": "^26.8.1",
+    "electron-rebuild": "^3.2.9"
+  },
+  "build": {
+    "appId": "com.gotchaboard.app",
+    "productName": "GotchaBoard",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron/**/*",
+      "server/**/*",
+      "public/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "storage",
+        "to": "storage",
+        "filter": [
+          "!images/**",
+          "!thumbs/**",
+          "!temp/**",
+          "!*.db",
+          "!*.db-*"
+        ]
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "icon": "build/icon.icns"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false
+    }
   }
 }
