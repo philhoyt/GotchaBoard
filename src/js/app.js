@@ -963,12 +963,27 @@ async function handleBulkAction({ action, ids, tags = [], add = [], remove = [] 
     });
 
     if (action === 'delete') {
+      const scrollEl = document.getElementById('grid-scroll');
+      const savedScroll = scrollEl.scrollTop;
       const cards = [...document.querySelectorAll('.image-card')]
         .filter(c => ids.includes(c.dataset.id));
       await Promise.all(cards.map((c, i) => sweep(c, i * 40).finished));
+      if (msnry) {
+        _renderingGrid = true;
+        cards.forEach(card => msnry.remove(card));
+        requestAnimationFrame(() => {
+          if (msnry) msnry.layout();
+          scrollEl.scrollTop = savedScroll;
+          _renderingGrid = false;
+        });
+      }
+      const deletedIds = new Set(ids);
+      state.images = state.images.filter(i => !deletedIds.has(i.id));
+      state.totalImages = Math.max(0, state.totalImages - ids.length);
       selection.clear();
       toast(`Deleted ${ids.length} Gots`);
-      await Promise.all([loadImages(), loadTags()]);
+      updateCounts();
+      await loadTags();
     } else {
       // Tag operations — patch only the affected cards, no grid rebuild
       const patchParams = new URLSearchParams(buildImageQuery());
