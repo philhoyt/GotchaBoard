@@ -48,6 +48,7 @@
     "appId": "com.gotchaboard.app",
     "productName": "GotchaBoard",
     "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
+    "buildDependenciesFromSource": true,
     "directories": {
       "output": "dist"
     },
@@ -55,6 +56,7 @@
       "electron/**/*",
       "server/**/*",
       "public/**/*",
+      "import/lib/**/*",
       "package.json"
     ],
     "extraResources": [
