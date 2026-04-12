@@ -12,6 +12,7 @@ async function generateThumbnail(sourcePath, thumbFilename) {
 
   try {
     await sharp(sourcePath)
+      .rotate()                                        // apply EXIF orientation, then strip tag
       .resize({ width: 400, withoutEnlargement: true })
       .jpeg({ quality: 80 })
       .toFile(thumbPath);

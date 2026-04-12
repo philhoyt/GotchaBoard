@@ -10,9 +10,10 @@ body {
 }
 
 #tags-app {
-  max-width: 760px;
-  margin:    0 auto;
-  padding:   24px 20px 60px;
+  max-width:  760px;
+  margin:     0 auto;
+  padding:    24px 20px 60px;
+  padding-top: calc(24px + var(--titlebar-height));
 }
 
 /* ── Header ───────────────────────────────────────────────────── */

@@ -269,9 +269,42 @@ section {
 }
 
 /* ── Electron titlebar offset (macOS traffic lights) ──────────── */
-/* Only applied when running inside the Electron shell */
-.electron-app #sidebar-header { padding-top: 42px; }
-.electron-app #topbar         { padding-top: 38px; }
+/* All values use --titlebar-height (0px in browser, 28px in app). */
+
+/* Sidebar header: push content below traffic lights */
+.electron-app #sidebar-header {
+  padding-top: calc(14px + var(--titlebar-height));
+}
+
+/* Topbar: same treatment */
+.electron-app #topbar {
+  padding-top: calc(10px + var(--titlebar-height));
+}
+
+/* Settings panel: sticky header sits at top:0, needs the same offset */
+.electron-app #settings-header {
+  padding-top: calc(14px + var(--titlebar-height));
+}
+
+/* Detail panel: close-button header sits at top:0 */
+.electron-app #detail-header {
+  padding-top: calc(12px + var(--titlebar-height));
+}
+
+/* Sidebar border: don't draw the right border into the titlebar zone —
+   hide it and replace with a pseudo-element that starts below the zone. */
+.electron-app #sidebar {
+  position:     relative;
+  border-right: none;
+}
+.electron-app #sidebar::after {
+  content:      '';
+  position:     absolute;
+  top:          var(--titlebar-height);
+  right:        0;
+  bottom:       0;
+  border-right: var(--bd);
+}
 #search-input {
   flex:      1;
   padding:   7px 12px;

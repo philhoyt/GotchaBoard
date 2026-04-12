@@ -24,10 +24,16 @@
   --space-6: 24px;
 
   /* Layout */
-  --sidebar-width: 220px;
-  --detail-width:  50vw;
-  --bar-height:    56px;
+  --sidebar-width:   220px;
+  --detail-width:    50vw;
+  --bar-height:      56px;
+
+  /* Electron macOS traffic-lights inset — 0 in browser, 28px in packaged app */
+  --titlebar-height: 0px;
 }
+
+/* Applied by the Electron preload when running as a packaged app */
+.electron-app { --titlebar-height: 28px; }
 
 /* ── Light Mode (default) ─────────────────────────────────────── */
 :root,

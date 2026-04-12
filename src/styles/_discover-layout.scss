@@ -21,10 +21,13 @@ html, body {
   align-items:   center;
   gap:           16px;
   padding:       10px 16px;
+  padding-top:   calc(10px + var(--titlebar-height));
   background:    var(--bg);
   border-bottom: var(--bd);
   flex-shrink:   0;
+  -webkit-app-region: drag;
 }
+#discover-header > * { -webkit-app-region: no-drag; }
 
 #back-link {
   color:           var(--ink);
@@ -258,6 +261,10 @@ html, body {
 }
 #settings-header h2 { font-size: 15px; }
 #settings-close { width: 32px; height: 32px; padding: 0; font-size: 18px; }
+
+.electron-app #settings-header {
+  padding-top: calc(14px + var(--titlebar-height));
+}
 
 #settings-content { padding: 16px; flex: 1; }
 

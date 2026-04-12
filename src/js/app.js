@@ -928,10 +928,6 @@ function openAddGotModal() {
         <input type="text" class="detail-add-tag-input" id="add-got-tag-input" placeholder="+ add tag">
       </div>
     </div>
-    <div class="add-got-field">
-      <div class="detail-label">Notes</div>
-      <textarea id="add-got-notes" class="detail-textarea" placeholder="Add notes..."></textarea>
-    </div>
 
     <div class="add-got-error" id="add-got-error"></div>
     <div class="add-got-actions">
@@ -1015,7 +1011,6 @@ function openAddGotModal() {
     showError('');
     const saveBtn = document.getElementById('add-got-save');
     const tags    = getModalTags();
-    const notes   = document.getElementById('add-got-notes').value.trim() || null;
 
     if (activeMode === 'url') {
       const source_url = document.getElementById('add-got-url').value.trim();
@@ -1028,7 +1023,7 @@ function openAddGotModal() {
       try {
         await apiFetch('/images/save', {
           method: 'POST',
-          body: JSON.stringify({ source_url, page_title, page_url, tags, notes }),
+          body: JSON.stringify({ source_url, page_title, page_url, tags }),
         });
         closeAddGotModal();
         await loadAll();
@@ -1047,7 +1042,6 @@ function openAddGotModal() {
         const formData = new FormData();
         formData.append('image', uploadFile);
         if (tags.length)  formData.append('tags',  JSON.stringify(tags));
-        if (notes)        formData.append('notes', notes);
 
         const res = await fetch(`${API}/images/upload`, { method: 'POST', body: formData });
         if (!res.ok) {

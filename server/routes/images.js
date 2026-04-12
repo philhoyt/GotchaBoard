@@ -52,7 +52,14 @@ async function handleUpload(req, res) {
     const filename = `${uuidv4()}${ext}`;
     const destPath = path.join(IMAGES_DIR, filename);
 
-    fs.renameSync(tempPath, destPath);
+    // Normalise EXIF orientation — rotate pixels, strip orientation tag.
+    // GIF is multi-frame and can't be round-tripped through sharp safely, so skip it.
+    if (mime !== 'image/gif') {
+      await sharp(tempPath).rotate().toFile(destPath);
+      fs.unlinkSync(tempPath);
+    } else {
+      fs.renameSync(tempPath, destPath);
+    }
 
     const thumbFilename = thumbFilenameFor(filename);
     const thumbnail = await generateThumbnail(destPath, thumbFilename);
