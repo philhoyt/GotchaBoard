@@ -5,6 +5,7 @@ import '../styles/discover.scss';
 
 import { toggleTheme } from './utils/theme.js';
 import { getTagColor } from './utils/tagColor.js';
+import { calcColumnWidth, DEFAULT_CARD_WIDTH, initMasonry, layoutAfterImages } from './utils/grid.js';
 
 'use strict';
 
@@ -43,21 +44,40 @@ async function apiFetch(path, opts = {}) {
 let allTags    = [];
 let feedOffset = 0;
 let feedSeed   = 0;
+let msnry      = null;
 const INITIAL_SIZE = 200;
 const PAGE_SIZE    = 50;
 
 // ── Grid scale ─────────────────────────────────────────────────────
-function setGridCols(n) {
+function updateCardWidth() {
+  const scroll = document.getElementById('discover-scroll');
+  const innerWidth = scroll.clientWidth - 24; // subtract 12px left + 12px right padding
+  const targetWidth = Number(localStorage.getItem('gotcha-discover-card-width')) || DEFAULT_CARD_WIDTH;
+  const actualWidth = calcColumnWidth(innerWidth, targetWidth);
+  document.getElementById('discover-grid').style.setProperty('--card-width', actualWidth + 'px');
+  return actualWidth;
+}
+
+function setCardWidth(w) {
   document.querySelectorAll('.grid-scale-btn').forEach(btn => {
-    btn.classList.toggle('active', Number(btn.dataset.cols) === n);
+    btn.classList.toggle('active', Number(btn.dataset.cardWidth) === w);
   });
-  localStorage.setItem('gotcha-discover-cols', n);
-  document.getElementById('discover-grid').style.setProperty('--discover-cols', n);
+  localStorage.setItem('gotcha-discover-card-width', w);
+  updateCardWidth();
+  if (msnry) msnry.layout();
 }
 
 function appendCards(candidates) {
   const grid = document.getElementById('discover-grid');
-  candidates.forEach(c => grid.appendChild(buildCard(c)));
+  const newItems = candidates.map(c => {
+    const el = buildCard(c);
+    grid.appendChild(el);
+    return el;
+  });
+  if (msnry) {
+    msnry.appended(newItems);
+    layoutAfterImages(grid, msnry);
+  }
 }
 
 // ── Render a candidate card ────────────────────────────────────────
@@ -114,8 +134,23 @@ async function loadFeed() {
     }
 
     showState('grid');
-    document.getElementById('discover-grid').innerHTML = '';
-    appendCards(data.candidates);
+    const grid = document.getElementById('discover-grid');
+    grid.innerHTML = '';
+    if (msnry) { msnry.destroy(); msnry = null; }
+    updateCardWidth();
+
+    const sizer = document.createElement('div');
+    sizer.className = 'grid-sizer';
+    grid.appendChild(sizer);
+
+    const items = data.candidates.map(c => {
+      const el = buildCard(c);
+      grid.appendChild(el);
+      return el;
+    });
+    msnry = initMasonry(grid, '.discover-card');
+    layoutAfterImages(grid, msnry);
+
     feedOffset = data.candidates.length;
     updateLoadMore(feedOffset, data.total);
   } catch (err) {
@@ -232,7 +267,12 @@ function openSaveDialog(candidate) {
       });
       closeSaveDialog();
       const card = document.querySelector(`.discover-card[data-id="${candidate.id}"]`);
-      if (card) { card.classList.add('dismissing'); card.addEventListener('animationend', () => card.remove()); }
+      if (card) {
+        card.classList.add('dismissing');
+        card.addEventListener('animationend', () => {
+          if (msnry) { msnry.remove(card); msnry.layout(); } else { card.remove(); }
+        });
+      }
       toast('Got saved!');
     } catch (err) {
       document.getElementById('save-dialog-error').textContent = err.message;
@@ -256,8 +296,13 @@ async function dismissCandidate(id, card) {
     await apiFetch(`/discover/${id}/dismiss`, { method: 'POST' });
     card.classList.add('dismissing');
     card.addEventListener('animationend', () => {
-      card.remove();
-      if (document.getElementById('discover-grid').children.length === 0) showState('empty');
+      if (msnry) {
+        msnry.remove(card);
+        msnry.layout();
+      } else {
+        card.remove();
+      }
+      if (document.querySelectorAll('.discover-card').length === 0) showState('empty');
     });
   } catch (err) {
     toast('Failed to dismiss');
@@ -430,11 +475,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('theme-toggle')?.addEventListener('click', toggleTheme);
 
   // Grid density
-  const savedCols = localStorage.getItem('gotcha-discover-cols');
-  if (savedCols) setGridCols(Number(savedCols));
+  const savedCardWidth = localStorage.getItem('gotcha-discover-card-width');
+  if (savedCardWidth) {
+    document.querySelectorAll('.grid-scale-btn').forEach(btn => {
+      btn.classList.toggle('active', Number(btn.dataset.cardWidth) === Number(savedCardWidth));
+    });
+  }
 
   document.querySelectorAll('.grid-scale-btn').forEach(btn => {
-    btn.addEventListener('click', () => setGridCols(Number(btn.dataset.cols)));
+    btn.addEventListener('click', () => setCardWidth(Number(btn.dataset.cardWidth)));
   });
 
   document.getElementById('run-discover-btn').addEventListener('click', runDiscovery);

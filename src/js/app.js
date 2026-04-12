@@ -5,6 +5,7 @@ import '../styles/main.scss';
 
 import { toggleTheme }    from './utils/theme.js';
 import { getTagColor }    from './utils/tagColor.js';
+import { calcColumnWidth, DEFAULT_CARD_WIDTH, initMasonry, layoutAfterImages } from './utils/grid.js';
 import { sweep }          from './animations.js';
 import { SelectionManager } from './multiselect.js';
 import { DragStack }      from './dragStack.js';
@@ -108,16 +109,17 @@ async function loadCollections() {
 }
 
 // ── Grid rendering ─────────────────────────────────────────────────
-function getEffectiveCols() {
-  const preferred = Number(localStorage.getItem('gotcha-grid-cols')) || 4;
-  const w = window.innerWidth;
-  if (w <= 600) return Math.min(preferred, 2);
-  if (w <= 900) return Math.min(preferred, 3);
-  return preferred;
-}
+let msnry = null;
 
-function shortestCol(colEls) {
-  return colEls.reduce((min, col) => col.scrollHeight < min.scrollHeight ? col : min);
+function updateCardWidth() {
+  const scroll = document.getElementById('grid-scroll');
+  const innerWidth = scroll.clientWidth - 24; // subtract 12px left + 12px right padding
+  const targetWidth = Number(localStorage.getItem('gotcha-card-width')) || DEFAULT_CARD_WIDTH;
+  const actualWidth = calcColumnWidth(innerWidth, targetWidth);
+  const grid = document.getElementById('image-grid');
+  grid.style.setProperty('--card-width', actualWidth + 'px');
+  grid.classList.toggle('compact-grid', actualWidth < 140);
+  return actualWidth;
 }
 
 function renderGrid() {
@@ -127,23 +129,25 @@ function renderGrid() {
   if (state.images.length === 0) {
     grid.style.display = 'none'; grid.innerHTML = '';
     empty.classList.add('visible');
+    if (msnry) { msnry.destroy(); msnry = null; }
     return;
   }
 
   grid.style.display = '';
   empty.classList.remove('visible');
+
+  if (msnry) { msnry.destroy(); msnry = null; }
   grid.innerHTML = '';
+  updateCardWidth();
 
-  const colEls = Array.from({ length: getEffectiveCols() }, () => {
-    const col = document.createElement('div');
-    col.className = 'grid-col';
-    grid.appendChild(col);
-    return col;
-  });
+  const sizer = document.createElement('div');
+  sizer.className = 'grid-sizer';
+  grid.appendChild(sizer);
 
-  state.images.forEach((image, idx) => {
-    shortestCol(colEls).appendChild(buildCard(image, idx));
-  });
+  state.images.forEach((image, idx) => grid.appendChild(buildCard(image, idx)));
+
+  msnry = initMasonry(grid, '.image-card');
+  layoutAfterImages(grid, msnry);
 
   syncSelectionUI();
   renderActiveFilters();
@@ -596,12 +600,13 @@ const dragStack = new DragStack({
 selection.addEventListener('change', () => syncSelectionUI());
 
 // ── Grid scale ─────────────────────────────────────────────────────
-function setGridCols(n) {
+function setCardWidth(w) {
   document.querySelectorAll('.grid-scale-btn').forEach(btn => {
-    btn.classList.toggle('active', Number(btn.dataset.cols) === n);
+    btn.classList.toggle('active', Number(btn.dataset.cardWidth) === w);
   });
-  localStorage.setItem('gotcha-grid-cols', n);
-  renderGrid();
+  localStorage.setItem('gotcha-card-width', w);
+  updateCardWidth();
+  if (msnry) msnry.layout();
 }
 
 // ── Add Got modal ──────────────────────────────────────────────────
@@ -902,7 +907,7 @@ function bindEventListeners() {
   });
 
   document.querySelectorAll('.grid-scale-btn').forEach(btn => {
-    btn.addEventListener('click', () => setGridCols(Number(btn.dataset.cols)));
+    btn.addEventListener('click', () => setCardWidth(Number(btn.dataset.cardWidth)));
   });
 
   document.getElementById('add-got-btn').addEventListener('click', openAddGotModal);
@@ -961,17 +966,20 @@ document.addEventListener('DOMContentLoaded', () => {
   bindEventListeners();
   initImportModal({ onDone: loadAll });
 
-  const savedCols = localStorage.getItem('gotcha-grid-cols');
-  if (savedCols) {
+  const savedCardWidth = localStorage.getItem('gotcha-card-width');
+  if (savedCardWidth) {
     document.querySelectorAll('.grid-scale-btn').forEach(btn => {
-      btn.classList.toggle('active', Number(btn.dataset.cols) === Number(savedCols));
+      btn.classList.toggle('active', Number(btn.dataset.cardWidth) === Number(savedCardWidth));
     });
   }
 
   let resizeTimer;
   window.addEventListener('resize', () => {
     clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(renderGrid, 150);
+    resizeTimer = setTimeout(() => {
+      updateCardWidth();
+      if (msnry) msnry.layout();
+    }, 150);
   });
 
   loadAll().catch(() => {

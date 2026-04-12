@@ -289,18 +289,20 @@ section {
   min-height:   0;       /* allow flex child to shrink / scroll */
 }
 #image-grid {
-  display: flex;
-  gap:     12px;
   padding: 12px;
-  align-items: start;
 }
-.grid-col {
-  flex:    1;
-  display: flex;
-  flex-direction: column;
-  gap:     12px;
-  min-width: 0;
+
+/* Masonry column sizer + cards share the same fluid width */
+#image-grid .grid-sizer,
+#image-grid .image-card {
+  width: var(--card-width, 220px);
 }
+#image-grid .image-card {
+  margin-bottom: 12px;
+}
+
+/* Compact mode: hide card meta at very small card widths */
+#image-grid.compact-grid .card-meta { display: none; }
 
 /* Grid scale toggles live in components.css */
 
