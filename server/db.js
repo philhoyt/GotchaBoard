@@ -70,7 +70,7 @@ db.exec(`
     image_url TEXT NOT NULL UNIQUE,
     page_url TEXT,
     page_title TEXT,
-    source_type TEXT NOT NULL CHECK(source_type IN ('crawl','rss','taste_search','visual_sim','link_hop')),
+    source_type TEXT NOT NULL CHECK(source_type IN ('crawl','rss','link_hop')),
     source_id INTEGER REFERENCES discover_sources(id) ON DELETE SET NULL,
     source_query TEXT,
     source_image_id TEXT REFERENCES images(id) ON DELETE SET NULL,
@@ -78,23 +78,6 @@ db.exec(`
     score_reason TEXT,
     status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','shown','saved','dismissed')),
     discovered_at TEXT NOT NULL DEFAULT (datetime('now'))
-  );
-
-  CREATE TABLE IF NOT EXISTS taste_profile (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    generated_at TEXT NOT NULL DEFAULT (datetime('now')),
-    profile_text TEXT NOT NULL,
-    sample_size INTEGER NOT NULL,
-    search_queries TEXT NOT NULL DEFAULT '[]'
-  );
-
-  CREATE TABLE IF NOT EXISTS discover_search_queries (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    query_text TEXT NOT NULL UNIQUE,
-    generated_from_profile_id INTEGER REFERENCES taste_profile(id) ON DELETE SET NULL,
-    results_fetched INTEGER NOT NULL DEFAULT 0,
-    candidates_queued INTEGER NOT NULL DEFAULT 0,
-    run_at TEXT
   );
 
   CREATE TABLE IF NOT EXISTS discover_link_hops (
@@ -130,6 +113,13 @@ function generateUniqueSlug(name, excludeId = null) {
 }
 
 function runMigrations() {
+  // Remove taste profile tables (feature removed)
+  db.prepare('DROP TABLE IF EXISTS discover_search_queries').run();
+  db.prepare('DROP TABLE IF EXISTS taste_profile').run();
+
+  // Remove taste-related candidates from existing databases
+  db.prepare("DELETE FROM discover_candidates WHERE source_type IN ('taste_search', 'visual_sim')").run();
+
   // 1. Add columns to tags table if upgrading from V1 schema
   const tagCols = db.prepare('PRAGMA table_info(tags)').all().map(c => c.name);
   if (!tagCols.includes('slug'))       db.prepare('ALTER TABLE tags ADD COLUMN slug TEXT').run();

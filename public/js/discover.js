@@ -32,8 +32,7 @@ async function apiFetch(path, opts = {}) {
 }
 
 // ── State ──────────────────────────────────────────────────────────
-let allTags   = [];
-let profileText = null;
+let allTags = [];
 
 // ── Grid scale ─────────────────────────────────────────────────────
 function setGridCols(n) {
@@ -44,22 +43,12 @@ function setGridCols(n) {
   localStorage.setItem('gotcha-grid-cols', n);
 }
 
-// ── Score → pastel color ───────────────────────────────────────────
-function scoreColor(score) {
-  if (score == null) return '#BBBBBB';
-  if (score >= 8)    return '#7FEDC8'; // mint
-  if (score >= 6)    return '#FFE566'; // lemon
-  return '#FFB880';                    // peach
-}
-
 // ── Render a candidate card ────────────────────────────────────────
 function buildCard(candidate) {
   const card = document.createElement('div');
   card.className = 'discover-card';
   card.dataset.id = candidate.id;
 
-  const score       = candidate.score != null ? candidate.score.toFixed(1) : '–';
-  const scoreCol    = scoreColor(candidate.score);
   const sourceDomain = (() => {
     try { return new URL(candidate.page_url || candidate.image_url).hostname.replace('www.', ''); }
     catch (_) { return candidate.source_type; }
@@ -70,12 +59,8 @@ function buildCard(candidate) {
          alt="" loading="lazy" onerror="this.style.display='none'">
     <div class="discover-card-meta">
       <div class="discover-card-top">
-        <span class="discover-score" style="background:${scoreCol}">${esc(score)}</span>
         <span class="discover-source" title="${esc(candidate.page_url || '')}">${esc(sourceDomain)}</span>
       </div>
-      ${candidate.score_reason
-        ? `<div class="discover-reason">${esc(candidate.score_reason)}</div>`
-        : ''}
       <div class="discover-card-actions">
         <button class="discover-save-btn" data-id="${candidate.id}">Save Got</button>
         <button class="discover-dismiss-btn" data-id="${candidate.id}" title="Dismiss">✕</button>
@@ -226,68 +211,6 @@ async function dismissCandidate(id, card) {
     });
   } catch (err) {
     toast('Failed to dismiss');
-  }
-}
-
-// ── Taste profile ──────────────────────────────────────────────────
-async function loadProfile() {
-  try {
-    const profile = await apiFetch('/discover/profile');
-    if (!profile) return;
-
-    profileText = profile.profile_text;
-
-    // Banner
-    const banner = document.getElementById('profile-banner');
-    document.getElementById('profile-banner-text').textContent = profile.profile_text;
-    banner.style.display = '';
-
-    // Settings panel
-    renderProfileInSettings(profile);
-  } catch (_) {}
-}
-
-function renderProfileInSettings(profile) {
-  const area = document.getElementById('taste-profile-area');
-  if (!profile) {
-    area.innerHTML = '<p class="settings-hint">No profile generated yet.</p>';
-    return;
-  }
-  const queries = Array.isArray(profile.search_queries) ? profile.search_queries : [];
-  area.innerHTML = `
-    <div id="taste-profile-text">${esc(profile.profile_text)}</div>
-    ${queries.length > 0 ? `
-      <div class="profile-queries">
-        <div class="profile-queries-label">Generated search queries</div>
-        ${queries.map(q => `<span class="profile-query-pill">${esc(q)}</span>`).join('')}
-      </div>
-    ` : ''}
-    <p class="settings-hint">Generated ${new Date(profile.generated_at).toLocaleDateString()} from ${profile.sample_size} Gots.</p>
-  `;
-}
-
-async function refreshProfile(btn) {
-  const orig  = btn.textContent;
-  const errEl = document.getElementById('profile-error');
-  btn.disabled   = true;
-  btn.textContent = 'Generating…';
-  document.getElementById('profile-loading').style.display = '';
-  if (errEl) errEl.textContent = '';
-
-  try {
-    const profile = await apiFetch('/discover/profile/refresh', { method: 'POST' });
-    profileText = profile.profile_text;
-    document.getElementById('profile-banner-text').textContent = profile.profile_text;
-    document.getElementById('profile-banner').style.display = '';
-    renderProfileInSettings(profile);
-    toast('Taste profile updated');
-  } catch (err) {
-    if (errEl) errEl.textContent = err.message;
-    toast(`Failed: ${err.message}`, 8000);
-  } finally {
-    btn.disabled   = false;
-    btn.textContent = orig;
-    document.getElementById('profile-loading').style.display = 'none';
   }
 }
 
@@ -444,16 +367,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('run-discover-btn').addEventListener('click', e => runDiscovery(e.currentTarget));
   document.getElementById('empty-run-btn')?.addEventListener('click', e => runDiscovery(e.currentTarget));
 
-  // Profile refresh
-  document.getElementById('refresh-profile-btn')?.addEventListener('click', e => refreshProfile(e.currentTarget));
-  document.getElementById('settings-refresh-profile-btn').addEventListener('click', e => refreshProfile(e.currentTarget));
-
-  // Generate profile from empty state
-  document.getElementById('empty-profile-btn')?.addEventListener('click', async (e) => {
-    openSettings();
-    document.getElementById('settings-refresh-profile-btn').click();
-  });
-
   // Settings
   document.getElementById('settings-btn').addEventListener('click', openSettings);
   document.getElementById('settings-close').addEventListener('click', closeSettings);
@@ -476,6 +389,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (document.getElementById('settings-panel').style.display !== 'none') { closeSettings(); return; }
   });
 
-  await Promise.all([loadTags(), loadProfile()]);
+  await loadTags();
   await loadFeed();
 });

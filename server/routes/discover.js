@@ -5,17 +5,13 @@ const { db } = require('../db');
 const { downloadImage } = require('../lib/download');
 const { generateThumbnail, thumbFilenameFor } = require('../lib/thumbnail');
 const { upsertTags } = require('./tags');
-const { scoreCandidate, generateTasteProfile } = require('../lib/scorer');
 const { runDiscoverCycle } = require('../lib/crawler');
-const { runCandidateScorer } = require('../jobs/discoverJob');
+const { promoteAllPending } = require('../jobs/discoverJob');
 const { v4: uuidv4 } = require('uuid');
 
 const router = express.Router();
 
 // ── GET /api/discover ──────────────────────────────────────────────
-// Returns candidates with status = 'shown', ordered by score desc.
-// Scoring of pending candidates happens in the background via cron jobs
-// or when a /run cycle is triggered — not on this request.
 router.get('/', (req, res) => {
   try {
     const limit  = Math.min(parseInt(req.query.limit  || '50'), 200);
@@ -174,63 +170,12 @@ router.delete('/sources/:id', (req, res) => {
   }
 });
 
-// ── GET /api/discover/profile ──────────────────────────────────────
-router.get('/profile', (req, res) => {
-  try {
-    const profile = db.prepare('SELECT * FROM taste_profile ORDER BY id DESC LIMIT 1').get();
-    if (!profile) return res.json(null);
-    res.json({ ...profile, search_queries: JSON.parse(profile.search_queries || '[]') });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// ── POST /api/discover/profile/refresh ────────────────────────────
-router.post('/profile/refresh', async (req, res) => {
-  try {
-    const sampleSize = parseInt(process.env.DISCOVER_SAMPLE_SIZE || '50');
-    const images = db.prepare(`
-      SELECT id, filename FROM images ORDER BY RANDOM() LIMIT ?
-    `).all(sampleSize);
-
-    if (images.length < 3) {
-      return res.status(400).json({ error: 'Need at least 3 saved Gots to generate a taste profile' });
-    }
-
-    const profile = await generateTasteProfile(images);
-
-    const result = db.prepare(
-      'INSERT INTO taste_profile (profile_text, sample_size, search_queries) VALUES (?, ?, ?)'
-    ).run(profile.profile_text, images.length, JSON.stringify(profile.search_queries));
-
-    // Mark generated queries as available (clear used ones)
-    for (const q of profile.search_queries) {
-      db.prepare(
-        'INSERT OR IGNORE INTO discover_search_queries (query_text, generated_from_profile_id) VALUES (?, ?)'
-      ).run(q, result.lastInsertRowid);
-    }
-
-    res.json({
-      id: result.lastInsertRowid,
-      profile_text: profile.profile_text,
-      sample_size: images.length,
-      search_queries: profile.search_queries,
-      generated_at: new Date().toISOString(),
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message || 'Internal server error' });
-  }
-});
-
 // ── POST /api/discover/run ─────────────────────────────────────────
 router.post('/run', async (req, res) => {
   try {
-    // Respond immediately; run in background
     res.json({ message: 'Discover cycle started' });
     runDiscoverCycle()
-      .then(() => runCandidateScorer())
+      .then(() => promoteAllPending())
       .catch(err => console.error('[discover] cycle error:', err));
   } catch (err) {
     console.error(err);

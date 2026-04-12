@@ -13,7 +13,6 @@
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.88.0",
     "adm-zip": "^0.5.10",
     "better-sqlite3": "^12.8.0",
     "cli-progress": "^3.12.0",

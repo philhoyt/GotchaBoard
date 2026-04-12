@@ -44,14 +44,6 @@
       </div>
     </header>
 
-    <!-- Taste profile banner (shown when profile exists) -->
-    <div id="profile-banner" style="display:none">
-      <div id="profile-banner-inner">
-        <span id="profile-banner-text"></span>
-        <button id="refresh-profile-btn" class="ghost-btn">↺ Refresh taste profile</button>
-      </div>
-    </div>
-
     <!-- Feed -->
     <div id="discover-scroll">
       <div id="discover-grid"></div>
@@ -61,10 +53,9 @@
     <div id="discover-empty" style="display:none">
       <div id="discover-empty-inner">
         <p class="discover-empty-title">No discoveries yet.</p>
-        <p class="discover-empty-hint">Run a discovery cycle to find images based on your taste, or add RSS sources in Settings.</p>
+        <p class="discover-empty-hint">Run a discovery cycle or add RSS sources in Settings.</p>
         <div id="discover-empty-actions">
           <button id="empty-run-btn" class="primary-btn">Run Discovery</button>
-          <button id="empty-profile-btn" class="ghost-btn">Generate taste profile first</button>
         </div>
       </div>
     </div>
@@ -83,17 +74,6 @@
       <button id="settings-close" class="ghost-btn">&times;</button>
     </div>
     <div id="settings-content">
-
-      <!-- Taste profile section -->
-      <section class="settings-section">
-        <h3>Taste Profile</h3>
-        <div id="taste-profile-area">
-          <p class="settings-hint">No profile generated yet. Save at least 3 Gots and click below.</p>
-        </div>
-        <button id="settings-refresh-profile-btn" class="primary-btn">Generate / Refresh Profile</button>
-        <div id="profile-loading" style="display:none" class="settings-hint">Analyzing your Gots with Claude… this may take 30–60s.</div>
-        <div id="profile-error" class="settings-error"></div>
-      </section>
 
       <!-- Sources section -->
       <section class="settings-section">

@@ -3,108 +3,15 @@
 const cron = require('node-cron');
 const { db } = require('../db');
 const { runDiscoverCycle, runSourceCrawler, runRssScraper } = require('../lib/crawler');
-const { runTasteSearch } = require('../lib/tasteSearch');
-const { scoreCandidate, generateTasteProfile } = require('../lib/scorer');
 
-// ── Candidate scorer ───────────────────────────────────────────────
-// Scores all pending candidates in batches. Runs after fetch cycles
-// and also on its own schedule so candidates don't sit unscored.
-async function runCandidateScorer() {
-  const profile = db.prepare('SELECT * FROM taste_profile ORDER BY id DESC LIMIT 1').get();
-  if (!profile) {
-    console.log('[scorer] No taste profile — promoting all pending to shown');
-    db.prepare("UPDATE discover_candidates SET status = 'shown' WHERE status = 'pending'").run();
-    return;
-  }
-
-  const threshold = parseFloat(process.env.DISCOVER_SCORE_THRESHOLD || '6');
-  // Auto-show RSS candidates — user chose those sources, trust them
-  db.prepare(`
-    UPDATE discover_candidates SET status = 'shown'
-    WHERE status = 'pending' AND source_type = 'rss'
-  `).run();
-
-  // Only score crawl/link_hop candidates against the taste profile
-  const batch = db.prepare(
-    "SELECT * FROM discover_candidates WHERE status = 'pending' AND score IS NULL AND source_type != 'rss' LIMIT 40"
-  ).all();
-
-  if (batch.length === 0) return;
-
-  console.log(`[scorer] Scoring ${batch.length} candidates...`);
-  let shown = 0, dropped = 0;
-
-  for (const candidate of batch) {
-    await new Promise(r => setTimeout(r, 2500)); // ~24 req/min, safe for token rate limit
-    let scored = false;
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const { score, reason } = await scoreCandidate(candidate.image_url, profile.profile_text);
-        if (score >= threshold) {
-          db.prepare(
-            "UPDATE discover_candidates SET score = ?, score_reason = ?, status = 'shown' WHERE id = ?"
-          ).run(score, reason, candidate.id);
-          shown++;
-        } else {
-          db.prepare('DELETE FROM discover_candidates WHERE id = ?').run(candidate.id);
-          dropped++;
-        }
-        scored = true;
-        break;
-      } catch (err) {
-        const msg = err.message || '';
-        if (msg.includes('429') || msg.includes('rate_limit')) {
-          // Rate limited — wait 60s and retry once
-          console.log(`[scorer] Rate limited, waiting 60s before retry...`);
-          await new Promise(r => setTimeout(r, 60000));
-          continue;
-        }
-        // Permanent failures — delete so they don't clog future runs
-        const isPermanent = msg.includes('robots.txt') || msg.includes('Only HTTPS') ||
-          msg.includes('disallowed') || msg.includes('403') || msg.includes('404') ||
-          msg.includes('Unsupported media type') || msg.includes('HTTP 4') ||
-          msg.includes('Image too large') || msg.includes('image exceeds');
-        if (isPermanent) {
-          db.prepare('DELETE FROM discover_candidates WHERE id = ?').run(candidate.id);
-          dropped++;
-        } else {
-          console.error(`[scorer] Failed to score candidate ${candidate.id}:`, msg);
-        }
-        scored = true;
-        break;
-      }
-    }
-  }
-
-  console.log(`[scorer] Done — ${shown} shown, ${dropped} dropped below threshold`);
-}
-
-// ── Taste profile refresh ──────────────────────────────────────────
-async function runProfileRefresh() {
-  const sampleSize = parseInt(process.env.DISCOVER_SAMPLE_SIZE || '50');
-  const images = db.prepare('SELECT id, filename FROM images ORDER BY RANDOM() LIMIT ?').all(sampleSize);
-
-  if (images.length < 3) {
-    console.log('[profile] Not enough images to generate profile (need at least 3)');
-    return;
-  }
-
-  console.log(`[profile] Generating taste profile from ${images.length} images...`);
-  try {
-    const profile = await generateTasteProfile(images);
-    const result = db.prepare(
-      'INSERT INTO taste_profile (profile_text, sample_size, search_queries) VALUES (?, ?, ?)'
-    ).run(profile.profile_text, images.length, JSON.stringify(profile.search_queries));
-
-    for (const q of profile.search_queries) {
-      db.prepare(
-        'INSERT OR IGNORE INTO discover_search_queries (query_text, generated_from_profile_id) VALUES (?, ?)'
-      ).run(q, result.lastInsertRowid);
-    }
-
-    console.log(`[profile] Done — ${profile.search_queries.length} search queries generated`);
-  } catch (err) {
-    console.error('[profile] Failed:', err.message);
+// ── Auto-promote ───────────────────────────────────────────────────
+// No scoring gate — all pending candidates go straight to shown.
+function promoteAllPending() {
+  const result = db.prepare(
+    "UPDATE discover_candidates SET status = 'shown' WHERE status = 'pending'"
+  ).run();
+  if (result.changes > 0) {
+    console.log(`[discover] Promoted ${result.changes} pending candidates to shown`);
   }
 }
 
@@ -126,20 +33,13 @@ function startJobs() {
   // Source URL crawler + link hops — daily at 2am
   cron.schedule('0 2 * * *', safe('source-crawler', runSourceCrawler));
 
-  // RSS / scrape fetcher — every hour (internally checks per-source intervals)
+  // RSS / scrape fetcher — every hour
   cron.schedule('0 * * * *', safe('rss-scraper', runRssScraper));
 
-  // Taste-driven search — daily at 3am
-  cron.schedule('0 3 * * *', safe('taste-search', runTasteSearch));
-
-  // Candidate scorer — every 30 minutes (picks up anything queued by other jobs)
-  cron.schedule('*/30 * * * *', safe('candidate-scorer', runCandidateScorer));
-
-  // Taste profile refresh — weekly, Sunday at 1am (runs before other jobs so
-  // taste-search at 3am uses a fresh profile the same day)
-  cron.schedule('0 1 * * 0', safe('profile-refresh', runProfileRefresh));
+  // Promote any pending candidates every 15 minutes
+  cron.schedule('*/15 * * * *', safe('promote-pending', promoteAllPending));
 
   console.log('[jobs] Discover jobs scheduled');
 }
 
-module.exports = { startJobs, runCandidateScorer, runProfileRefresh };
+module.exports = { startJobs, promoteAllPending };

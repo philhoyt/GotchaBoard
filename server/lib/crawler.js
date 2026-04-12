@@ -110,7 +110,7 @@ function isAlreadyKnown(imageUrl) {
 
 // ── queueCandidate ────────────────────────────────────────────────
 function queueCandidate({ image_url, page_url, page_title, source_type, source_id = null, source_query = null }) {
-  // Upgrade http → https so Claude Vision API can fetch the image
+  // Upgrade http → https for consistency
   if (image_url.startsWith('http://')) {
     image_url = 'https://' + image_url.slice(7);
   }
@@ -270,14 +270,6 @@ async function runDiscoverCycle() {
     console.log('[discover] RSS scraper done.');
   } catch (err) {
     console.error('[discover] RSS scraper error:', err.message);
-  }
-
-  try {
-    const { runTasteSearch } = require('./tasteSearch');
-    await runTasteSearch();
-    console.log('[discover] Taste search done.');
-  } catch (err) {
-    console.error('[discover] Taste search error:', err.message);
   }
 
   console.log('[discover] Cycle complete.');
