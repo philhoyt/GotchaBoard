@@ -817,7 +817,7 @@ section {
   flex-shrink:   0;
 }
 .mt-suggestion:hover,
-.mt-suggestion.active { background: var(--surface2); }
+.mt-suggestion.active { background: var(--color-lemon); color: #111111; }
 
 #bulk-tag-dialog.manage-tags-dialog #bulk-tag-dialog-actions {
   padding:     14px 20px;
