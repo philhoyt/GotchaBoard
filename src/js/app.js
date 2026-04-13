@@ -647,10 +647,15 @@ async function saveDetailTags(imageId) {
     const img = state.images.find(i => i.id === imageId);
     if (img) img.tags = tags;
     patchCardBadges(imageId, tags);
+
+    // Capture filter match BEFORE loadTags() — loadTags triggers renderTagList
+    // which could interfere with activeTags state
+    const shouldRemove = !imageMatchesCurrentFilter(tags);
+
     await loadTags();
 
     // If a filter is active and this image no longer matches it, sweep it out
-    if (!imageMatchesCurrentFilter(tags)) {
+    if (shouldRemove) {
       const scrollEl = document.getElementById('grid-scroll');
       const savedScroll = scrollEl.scrollTop;
       closeDetail();
@@ -696,6 +701,9 @@ function imageMatchesCurrentFilter(tagNames) {
         return [t.name, ...children];
       })
     );
+    // Guard: if we couldn't resolve any active tag IDs to names, the filter
+    // state is stale — don't silently match everything.
+    if (activeNames.size === 0) return false;
     return tagNames.some(name => activeNames.has(name));
   }
   return true;
@@ -1043,15 +1051,49 @@ async function handleBulkAction({ action, ids, tags = [], add = [], remove = [] 
       updateCounts();
       await loadTags();
     } else {
-      // Tag operations — patch only the affected cards, no grid rebuild
+      // Tag operations — patch affected cards, sweep any that no longer match the filter
       const patchParams = new URLSearchParams(buildImageQuery());
       patchParams.set('limit', Math.max(state.images.length, 200));
       patchParams.set('offset', 0);
       const { images: fresh } = await apiFetch('/images?' + patchParams.toString());
+      const freshIds = new Set(fresh.map(i => i.id));
+
+      // Patch cards that are still in the filtered results
       for (const id of ids) {
         const img = fresh.find(i => i.id === id);
         if (img) patchCardBadges(id, img.tags);
       }
+
+      // Sweep cards that no longer match the active filter
+      const removedIds = ids.filter(id => !freshIds.has(id));
+      if (removedIds.length > 0) {
+        const scrollEl = document.getElementById('grid-scroll');
+        const savedScroll = scrollEl.scrollTop;
+        const cards = [...document.querySelectorAll('.image-card')]
+          .filter(c => removedIds.includes(c.dataset.id));
+        if (cards.length > 0 && msnry) {
+          _renderingGrid = true;
+          await Promise.all(cards.map((c, i) => sweep(c, i * 40).finished));
+          cards.forEach(card => msnry.remove(card));
+          requestAnimationFrame(() => {
+            if (msnry) msnry.layout();
+            scrollEl.scrollTop = savedScroll;
+            _renderingGrid = false;
+          });
+        }
+        const removedSet = new Set(removedIds);
+        state.images = state.images.filter(i => !removedSet.has(i.id));
+        state.totalImages = Math.max(0, state.totalImages - removedIds.length);
+        updateCounts();
+      }
+
+      // Update state.images tags for cards that stayed
+      for (const id of ids) {
+        const img = fresh.find(i => i.id === id);
+        const stateImg = state.images.find(i => i.id === id);
+        if (img && stateImg) stateImg.tags = img.tags;
+      }
+
       selection.clear();
       toast(`Updated ${ids.length} Gots`);
       await loadTags();
