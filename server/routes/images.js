@@ -6,15 +6,28 @@ const sharp = require('sharp');
 const { db, IMAGES_DIR, THUMBS_DIR } = require('../db');
 const { downloadImage } = require('../lib/download');
 const { generateThumbnail, thumbFilenameFor } = require('../lib/thumbnail');
+const { extFromMime, SHARP_SUPPORTED } = require('../lib/formats');
 const { upsertTags } = require('./tags');
 
 async function readDimensions(filepath) {
   try {
     const { width, height } = await sharp(filepath).metadata();
-    return { width: width || null, height: height || null };
-  } catch (_) {
-    return { width: null, height: null };
+    if (width && height) return { width, height };
+  } catch (_) {}
+
+  // Fallback for SVGs — parse viewBox or width/height from the XML header
+  if (filepath.toLowerCase().endsWith('.svg')) {
+    try {
+      const head = fs.readFileSync(filepath, 'utf8').slice(0, 2000);
+      const vb = head.match(/viewBox=["'][\d.]+\s+[\d.]+\s+([\d.]+)\s+([\d.]+)["']/);
+      if (vb) return { width: Math.round(parseFloat(vb[1])), height: Math.round(parseFloat(vb[2])) };
+      const w = head.match(/\bwidth=["']([\d.]+)/);
+      const h = head.match(/\bheight=["']([\d.]+)/);
+      if (w && h) return { width: Math.round(parseFloat(w[1])), height: Math.round(parseFloat(h[1])) };
+    } catch (_) {}
   }
+
+  return { width: null, height: null };
 }
 
 const router = express.Router();
@@ -47,14 +60,13 @@ async function handleUpload(req, res) {
       return res.status(400).json({ error: 'File must be an image' });
     }
 
-    const extMap = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/gif': '.gif', 'image/webp': '.webp', 'image/avif': '.avif' };
-    const ext = extMap[mime] || path.extname(req.file.originalname || '').toLowerCase() || '.jpg';
+    const ext = extFromMime(mime) || path.extname(req.file.originalname || '').toLowerCase() || '.jpg';
     const filename = `${uuidv4()}${ext}`;
     const destPath = path.join(IMAGES_DIR, filename);
 
-    // Normalise EXIF orientation — rotate pixels, strip orientation tag.
-    // GIF is multi-frame and can't be round-tripped through sharp safely, so skip it.
-    if (mime !== 'image/gif') {
+    // Sharp-safe formats: normalise EXIF orientation.
+    // GIF (multi-frame) and SVG (vector) are copied as-is.
+    if (SHARP_SUPPORTED.has(mime)) {
       await sharp(tempPath).rotate().toFile(destPath);
       fs.unlinkSync(tempPath);
     } else {

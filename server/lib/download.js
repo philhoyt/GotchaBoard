@@ -4,22 +4,11 @@ const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const { IMAGES_DIR } = require('../db');
+const { MIME_TO_EXT } = require('./formats');
 
 const MAX_SIZE = 50 * 1024 * 1024; // 50MB
 const TIMEOUT_MS = 15000;
 const MAX_REDIRECTS = 3;
-
-const MIME_TO_EXT = {
-  'image/jpeg': '.jpg',
-  'image/jpg': '.jpg',
-  'image/png': '.png',
-  'image/gif': '.gif',
-  'image/webp': '.webp',
-  'image/avif': '.avif',
-  'image/svg+xml': '.svg',
-  'image/bmp': '.bmp',
-  'image/tiff': '.tiff',
-};
 
 function extFromUrl(urlStr) {
   try {

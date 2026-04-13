@@ -254,7 +254,10 @@ function buildCard(image, idx) {
   card.dataset.idx = idx;
 
   const thumb = (image.thumbnail && image.thumbnail !== 'error' && image.thumbnail !== 'placeholder')
-    ? `/thumbs/${image.thumbnail}` : null;
+    ? `/thumbs/${image.thumbnail}`
+    : image.filename
+      ? `/images/${image.filename}`
+      : null;
 
   const tagBadges = (image.tags || []).map(name => {
     const t     = state.tags.find(t => t.name === name);
@@ -1215,7 +1218,9 @@ function openAddGotModal() {
   const fileInput = document.getElementById('add-got-file');
 
   const setFile = (file) => {
-    if (!file || !file.type.startsWith('image/')) return;
+    const isImage = file && (file.type.startsWith('image/') ||
+      /\.(jpe?g|png|gif|webp|avif|svg|bmp|tiff?)$/i.test(file.name));
+    if (!isImage) return;
     uploadFile = file;
     const url = URL.createObjectURL(file);
     dropzone.innerHTML = `<img src="${url}" alt="preview"><input type="file" id="add-got-file" accept="image/*" style="display:none">`;
@@ -1585,7 +1590,9 @@ function bindEventListeners() {
       e.preventDefault();
       dragCounter = 0;
       overlay.classList.add('hidden');
-      const files = [...e.dataTransfer.files].filter(f => f.type.startsWith('image/'));
+      const files = [...e.dataTransfer.files].filter(f =>
+        f.type.startsWith('image/') || /\.(jpe?g|png|gif|webp|avif|svg|bmp|tiff?)$/i.test(f.name)
+      );
       if (files.length) uploadDroppedFiles(files);
     });
 
