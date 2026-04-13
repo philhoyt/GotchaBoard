@@ -502,6 +502,21 @@ section {
   margin-bottom:  4px;
 }
 .detail-value { font-size: 13px; color: var(--ink); word-break: break-all; }
+.detail-title-input {
+  width:       100%;
+  font-size:   13px;
+  font-weight: 500;
+  color:       var(--ink);
+  background:  transparent;
+  border:      1px solid transparent;
+  border-radius: 4px;
+  padding:     3px 6px;
+  margin:      -3px -6px;
+  font-family: inherit;
+  transition:  border-color 0.15s, background 0.15s;
+  &:hover  { border-color: var(--ink-dimmer); }
+  &:focus  { outline: none; border-color: var(--ink-dim); background: var(--surface); }
+}
 .detail-value a { color: var(--ink); text-decoration: underline; }
 .detail-value-url {
   font-size:     13px;

@@ -138,7 +138,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const tagsRaw = document.getElementById('tags-input').value;
     const tags = tagsRaw.split(',').map(t => t.trim()).filter(t => t.length > 0);
-    const notes = document.getElementById('notes-input').value.trim() || null;
 
     showLoading();
 
@@ -151,8 +150,7 @@ document.addEventListener('DOMContentLoaded', () => {
           source_url: pendingImage.srcUrl,
           page_title: pendingImage.pageTitle || null,
           page_url: pendingImage.pageUrl || null,
-          tags,
-          notes
+          tags
         })
       });
 

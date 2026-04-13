@@ -588,7 +588,11 @@ function buildDetailHTML(image) {
       <div class="detail-label">Source</div>
       <div class="detail-value-url"><a href="${esc(image.source_url)}" target="_blank" rel="noopener" title="${esc(image.source_url)}">${esc(image.source_url)}</a></div>
     </div>
-    ${image.page_title ? `<div class="detail-field"><div class="detail-label">Page Title</div><div class="detail-value">${esc(image.page_title)}</div></div>` : ''}
+    <div class="detail-field">
+      <div class="detail-label">Title</div>
+      <input type="text" class="detail-title-input" id="detail-title-input"
+             value="${esc(image.page_title || '')}" placeholder="Add a title…">
+    </div>
     ${image.page_url   ? `<div class="detail-field"><div class="detail-label">Page URL</div><div class="detail-value-url"><a href="${esc(image.page_url)}" target="_blank" rel="noopener" title="${esc(image.page_url)}">${esc(image.page_url)}</a></div></div>` : ''}
     ${image.pin_url    ? `<div class="detail-field"><div class="detail-label">Pinterest Pin</div><div class="detail-value-url"><a href="${esc(image.pin_url)}" target="_blank" rel="noopener" title="${esc(image.pin_url)}">${esc(image.pin_url)}</a></div></div>` : ''}
     <div class="detail-field"><div class="detail-label">Saved</div><div class="detail-value">${esc(saved)}</div></div>
@@ -609,6 +613,25 @@ function buildDetailHTML(image) {
 function getDetailTags() {
   return [...document.querySelectorAll('#detail-tags-wrap .detail-tag-pill')]
     .map(el => el.dataset.tag);
+}
+
+async function saveDetailTitle(image, newTitle) {
+  const trimmed = newTitle.trim();
+  if (trimmed === (image.page_title || '')) return;
+  try {
+    await apiFetch(`/images/${image.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ page_title: trimmed || null }),
+    });
+    image.page_title = trimmed || null;
+    const card = document.querySelector(`.image-card[data-id="${image.id}"]`);
+    if (card) {
+      const titleEl = card.querySelector('.card-title');
+      if (titleEl) titleEl.textContent = trimmed || '';
+    }
+  } catch (err) {
+    console.error('Failed to update title:', err);
+  }
 }
 
 async function saveDetailTags(imageId) {
@@ -712,6 +735,13 @@ function addDetailTagPill(name, imageId) {
 }
 
 function bindDetailEvents(image) {
+  const titleInput = document.getElementById('detail-title-input');
+  titleInput.addEventListener('blur', () => saveDetailTitle(image, titleInput.value));
+  titleInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); titleInput.blur(); }
+    if (e.key === 'Escape') { titleInput.value = image.page_title || ''; titleInput.blur(); }
+  });
+
   document.querySelectorAll('.detail-tag-remove').forEach(btn => {
     btn.addEventListener('click', () => {
       btn.closest('.detail-tag-pill').remove();

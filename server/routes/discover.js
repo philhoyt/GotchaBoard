@@ -93,7 +93,7 @@ router.post('/:id/save', async (req, res) => {
     })();
 
     const saved = db.prepare(`
-      SELECT images.*, GROUP_CONCAT(tags.name, ',') as tag_names
+      SELECT images.*, GROUP_CONCAT(tags.name, '|') as tag_names
       FROM images
       LEFT JOIN image_tags ON image_tags.image_id = images.id
       LEFT JOIN tags ON tags.id = image_tags.tag_id
@@ -101,7 +101,7 @@ router.post('/:id/save', async (req, res) => {
     `).get(imageId);
 
     const { tag_names, ...rest } = saved;
-    res.status(201).json({ ...rest, tags: tag_names ? tag_names.split(',') : [] });
+    res.status(201).json({ ...rest, tags: tag_names ? tag_names.split('|') : [] });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Internal server error' });

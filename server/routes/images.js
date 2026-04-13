@@ -22,13 +22,13 @@ const router = express.Router();
 function rowToImage(row) {
   if (!row) return null;
   const { tag_names, ...rest } = row;
-  return { ...rest, tags: tag_names ? tag_names.split(',') : [] };
+  return { ...rest, tags: tag_names ? tag_names.split('|') : [] };
 }
 
 const BASE_QUERY = `
   SELECT
     images.*,
-    GROUP_CONCAT(tags.name, ',') as tag_names
+    GROUP_CONCAT(tags.name, '|') as tag_names
   FROM images
   LEFT JOIN image_tags ON image_tags.image_id = images.id
   LEFT JOIN tags ON tags.id = image_tags.tag_id
@@ -309,11 +309,12 @@ router.patch('/:id', (req, res) => {
     const image = db.prepare('SELECT id FROM images WHERE id = ?').get(id);
     if (!image) return res.status(404).json({ error: 'Image not found' });
 
-    const { notes, tags } = req.body;
+    const { notes, tags, page_title } = req.body;
     const updates = [];
     const params = [];
 
-    if (notes !== undefined) { updates.push('notes = ?'); params.push(notes); }
+    if (notes !== undefined)      { updates.push('notes = ?');      params.push(notes); }
+    if (page_title !== undefined) { updates.push('page_title = ?'); params.push(page_title); }
 
     const updateTransaction = db.transaction(() => {
       if (updates.length > 0) {
