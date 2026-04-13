@@ -1,0 +1,20 @@
+Screenshots needed for Chrome Web Store listing
+Required size: 1280x800 or 640x400 PNG/JPEG
+At least 1 required, up to 5 allowed
+
+SCREENSHOT 1 — Context menu
+Show the right-click context menu on an image on any webpage with
+"Save to Gotcha" highlighted in the menu.
+
+SCREENSHOT 2 — Popup with preview
+Show the extension popup with an image preview loaded, the tags input
+field, notes field, and the Save Image button.
+
+SCREENSHOT 3 — GotchaBoard app (optional)
+Show the GotchaBoard desktop app with the masonry grid of saved images,
+sidebar with tags, demonstrating the end result of using the extension.
+
+PROMOTIONAL TILE (optional, recommended)
+Size: 440x280 PNG
+A branded tile with the Gotcha logo on the yellow (#FFE566) background
+and a short tagline like "Save images from anywhere".

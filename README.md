@@ -57,14 +57,22 @@ chmod +x GotchaBoard-*.AppImage
 ./GotchaBoard-*.AppImage
 ```
 
-## Chrome Extension Setup
+## Chrome Extension
+
+Install **Save to Gotcha** from the [Chrome Web Store](https://chrome.google.com/webstore/detail/EXTENSION_ID_HERE) — one click, no developer mode needed.
+
+Right-click any image on any webpage → **Save to Gotcha** → add tags → done.
+
+The extension connects to your local GotchaBoard server at `http://localhost:47315` by default. If you need to change the port, click the ⚙ icon in the extension popup and update the server URL.
+
+### Manual install (developer mode)
+
+If you prefer not to use the Web Store:
 
 1. Open Chrome and go to `chrome://extensions`.
 2. Enable **Developer mode** using the toggle in the top right.
 3. Click **Load unpacked** and select the `extension/` folder from this repo.
 4. The **Save to Gotcha** extension appears in your toolbar.
-
-The extension sends saves to `http://localhost:47315`, the fixed port the app listens on.
 
 ## Discover
 

@@ -9,6 +9,15 @@
   <div id="app">
     <div id="header">
       <span class="logo">Gotcha</span>
+      <button id="settings-toggle" title="Server settings" aria-label="Server settings">⚙</button>
+    </div>
+
+    <div id="settings-panel" style="display:none">
+      <label for="server-url-input">Server URL</label>
+      <div id="settings-row">
+        <input type="text" id="server-url-input" placeholder="http://localhost:47315">
+        <button type="button" id="save-server-btn">Save</button>
+      </div>
     </div>
 
     <div id="status-bar" style="display:none"></div>

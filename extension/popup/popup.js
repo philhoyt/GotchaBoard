@@ -1,4 +1,12 @@
-const API = 'http://localhost:3000/api';
+const DEFAULT_SERVER = 'http://localhost:47315';
+
+async function getServerUrl() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get('serverUrl', (result) => {
+      resolve((result.serverUrl || DEFAULT_SERVER).replace(/\/+$/, ''));
+    });
+  });
+}
 
 let pendingImage = null;
 
@@ -10,6 +18,14 @@ function showStatus(message, type = 'warning') {
     bar.style.background = '#fee2e2';
     bar.style.borderColor = '#f87171';
     bar.style.color = '#991b1b';
+  } else if (type === 'success') {
+    bar.style.background = '#d1fae5';
+    bar.style.borderColor = '#34d399';
+    bar.style.color = '#065f46';
+  } else {
+    bar.style.background = '#fef3c7';
+    bar.style.borderColor = '#f59e0b';
+    bar.style.color = '#92400e';
   }
 }
 
@@ -31,10 +47,10 @@ function showError(message) {
   errState.style.display = 'block';
 }
 
-
 async function checkDuplicate(url) {
   try {
-    const res = await fetch(`${API}/images/check-duplicate?url=${encodeURIComponent(url)}`);
+    const serverUrl = await getServerUrl();
+    const res = await fetch(`${serverUrl}/api/images/check-duplicate?url=${encodeURIComponent(url)}`);
     if (!res.ok) return;
     const data = await res.json();
     if (data.duplicate) {
@@ -46,6 +62,10 @@ async function checkDuplicate(url) {
 }
 
 async function init() {
+  // Pre-fill server URL input
+  const serverUrl = await getServerUrl();
+  document.getElementById('server-url-input').value = serverUrl;
+
   // Try to get pending image from storage
   try {
     const result = await new Promise((resolve) => {
@@ -92,6 +112,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // Settings toggle
+  document.getElementById('settings-toggle').addEventListener('click', () => {
+    const panel = document.getElementById('settings-panel');
+    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+  });
+
+  // Save server URL
+  document.getElementById('save-server-btn').addEventListener('click', () => {
+    const url = document.getElementById('server-url-input').value.trim().replace(/\/+$/, '');
+    if (url) {
+      chrome.storage.local.set({ serverUrl: url });
+      showStatus('Server URL saved!', 'success');
+      document.getElementById('settings-panel').style.display = 'none';
+    }
+  });
+
   document.getElementById('cancel-btn').addEventListener('click', () => {
     window.close();
   });
@@ -107,7 +143,8 @@ document.addEventListener('DOMContentLoaded', () => {
     showLoading();
 
     try {
-      const res = await fetch(`${API}/images/save`, {
+      const serverUrl = await getServerUrl();
+      const res = await fetch(`${serverUrl}/api/images/save`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

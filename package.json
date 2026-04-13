@@ -30,7 +30,8 @@
     "dist:mac": "npm run build && electron-builder --mac",
     "dist:win": "npm run build && electron-builder --win",
     "dist:linux": "npm run build && electron-builder --linux",
-    "postinstall": "electron-builder install-app-deps"
+    "postinstall": "electron-builder install-app-deps",
+    "ext:zip": "mkdir -p dist && cd extension && zip -r ../dist/save-to-gotcha-extension.zip . -x 'store/*' -x '.*'"
   },
   "dependencies": {
     "@fontsource/dm-sans": "^5.2.8",
