@@ -44,37 +44,6 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  build-mac-x64:
-    runs-on: macos-13   # Intel (last x64 macOS runner)
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: 'npm'
-
-      - name: Sync version from tag
-        run: npm pkg set version="${GITHUB_REF_NAME#v}"
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build frontend
-        run: npm run build
-
-      - name: Package (Mac x64)
-        run: npx electron-builder --mac --x64 --publish never
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: mac-x64
-          path: |
-            dist/*.dmg
-            dist/*.zip
-          if-no-files-found: error
-          retention-days: 1
-
   build-windows:
     runs-on: windows-latest
     steps:
@@ -151,7 +120,7 @@ jobs:
           retention-days: 1
 
   release:
-    needs: [build-mac-arm64, build-mac-x64, build-windows, build-linux, build-extension]
+    needs: [build-mac-arm64, build-windows, build-linux, build-extension]
     runs-on: ubuntu-latest
     steps:
       - name: Download all artifacts
@@ -175,7 +144,6 @@ jobs:
             | Platform | Download |
             |----------|----------|
             | Mac (Apple Silicon) | `GotchaBoard-${{ github.ref_name }}-mac-arm64.dmg` |
-            | Mac (Intel) | `GotchaBoard-${{ github.ref_name }}-mac-x64.dmg` |
             | Windows | `GotchaBoard-${{ github.ref_name }}-win-x64.exe` |
             | Linux | `GotchaBoard-${{ github.ref_name }}-linux-x86_64.AppImage` |
             | Chrome Extension | `save-to-gotcha-extension.zip` |
