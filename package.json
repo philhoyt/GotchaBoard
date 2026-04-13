@@ -62,6 +62,7 @@
     "appId": "com.gotchaboard.app",
     "productName": "GotchaBoard",
     "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
+    "afterPack": "./build/afterPack.js",
     "buildDependenciesFromSource": true,
     "directories": {
       "output": "dist"
@@ -99,7 +100,6 @@
         }
       ],
       "icon": "build/icon.icns",
-      "identity": null,
       "hardenedRuntime": false,
       "gatekeeperAssess": false
     },

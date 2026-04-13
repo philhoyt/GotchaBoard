@@ -32,19 +32,21 @@ Download the latest release for your platform from the [Releases page](../../rel
 
 ### macOS — first launch
 
-GotchaBoard is not notarized (I'm not paying Apple $99/year for a free app). macOS will warn you on first launch:
+GotchaBoard is not notarized (I'm not paying Apple $99/year for a free app). On first launch:
 
 1. Open the `.dmg` and drag **GotchaBoard** to **Applications**.
 2. Right-click the app and choose **Open**.
 3. Click **Open** in the security dialog.
 
-After the first launch it opens normally. If macOS says the app is "damaged and can't be opened":
+After the first launch it opens normally.
+
+If right-click > Open does not work, go to **System Settings > Privacy and Security** and click **Open Anyway**.
+
+If macOS says the app is "damaged and can't be opened" (rare — the build is ad-hoc signed, but some macOS versions are strict about quarantine):
 
 ```bash
 xattr -cr /Applications/GotchaBoard.app
 ```
-
-If right-click > Open does not work, go to **System Settings > Privacy and Security** and click **Open Anyway**.
 
 ### Windows — first launch
 

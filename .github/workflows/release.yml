@@ -142,13 +142,13 @@ jobs:
             | Linux | `GotchaBoard-${{ github.ref_name }}-linux-x86_64.AppImage` |
 
             ### Mac — first launch
-            GotchaBoard is not signed with an Apple Developer certificate. On first launch:
+            GotchaBoard is not notarized. On first launch:
             1. Open the `.dmg` and drag GotchaBoard to Applications
             2. **Right-click** (or Control-click) the app → **Open**
             3. Click **Open** in the dialog that appears
             4. After the first launch, it opens normally
 
-            If macOS says the app is "damaged", run: `xattr -cr /Applications/GotchaBoard.app`
+            If "damaged and can't be opened" appears (rare): `xattr -cr /Applications/GotchaBoard.app`
 
             ### Windows — first launch
             Windows SmartScreen may show a warning since the app isn't signed:
