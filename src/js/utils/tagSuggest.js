@@ -98,7 +98,7 @@ export function attachTagSuggestions(input, getTagDefs, onSelect) {
     if (e.key === 'Enter') {
       if (visible && activeIndex >= 0 && items[activeIndex]) {
         e.preventDefault();
-        e.stopPropagation();
+        e.stopImmediatePropagation();
         onSelect(items[activeIndex].textContent);
         input.value = '';
         hide();
@@ -119,7 +119,7 @@ export function attachTagSuggestions(input, getTagDefs, onSelect) {
 
     if (e.key === 'Escape') {
       if (visible) {
-        e.stopPropagation(); // Don't close the detail panel / modal on first Escape
+        e.stopImmediatePropagation(); // Don't close the detail panel / modal on first Escape
         hide();
       }
       return;
