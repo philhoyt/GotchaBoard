@@ -139,7 +139,7 @@
 /* ── Tag Items (sidebar) ───────────────────────────────────────── */
 .tag-item {
   border:       var(--bd);
-  box-shadow:   var(--sh-sm);
+  //box-shadow:   var(--sh-sm);
   background:   var(--surface);
   color:        var(--ink);
   border-radius: 0;
@@ -157,17 +157,20 @@
   background:   var(--color-lemon) !important;
   color:        #111111 !important;
   border-color: var(--ink) !important;
+  box-shadow:   var(--sh-sm);
 }
 .tag-item.multi-active {
   background:   var(--color-peach) !important;
   color:        #111111 !important;
   border-color: var(--ink) !important;
+  box-shadow:   var(--sh-sm);
 }
 .tag-item.drop-target-hover {
   background:   var(--color-mint) !important;
   color:        #111111 !important;
   box-shadow:   var(--sh) !important;
   border-color: var(--ink) !important;
+  box-shadow:   var(--sh-sm);
 }
 
 /* ── Collection Items ──────────────────────────────────────────── */
