@@ -1200,6 +1200,29 @@ body.is-dragging [data-tag-id] { pointer-events: all !important; }
   font-size: 11px;
   color:     var(--ink-dim);
 }
+.collection-operator-row {
+  display:       flex;
+  align-items:   center;
+  gap:           10px;
+  margin-bottom: 8px;
+  label { font-size: 12px; font-weight: 600; color: var(--ink); margin: 0; }
+}
+.collection-operator-toggle { display: flex; }
+.operator-btn {
+  font-family:  inherit;
+  font-size:    11px;
+  font-weight:  600;
+  padding:      4px 10px;
+  border:       var(--bd);
+  background:   var(--surface);
+  color:        var(--ink-dim);
+  cursor:       pointer;
+  border-radius: 0;
+  transition:   background 0.1s, color 0.1s;
+  & + .operator-btn { margin-left: -2px; }
+  &.active  { background: var(--color-lemon); color: var(--ink); position: relative; z-index: 1; }
+  &:hover:not(.active) { background: var(--surface2); }
+}
 .collection-match-count {
   font-size:   12px;
   color:       var(--ink-dim);

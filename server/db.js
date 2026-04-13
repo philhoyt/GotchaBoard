@@ -182,7 +182,14 @@ function runMigrations() {
   if (!imageCols2.includes('width'))    db.prepare('ALTER TABLE images ADD COLUMN width INTEGER').run();
   if (!imageCols2.includes('height'))   db.prepare('ALTER TABLE images ADD COLUMN height INTEGER').run();
 
-  // 4. Drop board_id from images if it still exists (SQLite 3.35+)
+  // 4. Migrate collections: flip operator from AND → OR (OR is the new default)
+  db.prepare(`
+    UPDATE smart_collections
+    SET tag_query = JSON_SET(tag_query, '$.operator', 'OR')
+    WHERE JSON_EXTRACT(tag_query, '$.operator') = 'AND'
+  `).run();
+
+  // 5. Drop board_id from images if it still exists (SQLite 3.35+)
   const imageCols = db.prepare('PRAGMA table_info(images)').all().map(c => c.name);
   if (imageCols.includes('board_id')) {
     // Drop any index that references board_id before dropping the column

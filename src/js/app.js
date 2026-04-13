@@ -842,7 +842,13 @@ function _createCollectionModal() {
         <input type="text" id="collection-name-input" placeholder="Collection name" maxlength="100" />
       </div>
       <div class="collection-form-row">
-        <label>Filter tags (AND — images must have all selected tags):</label>
+        <div class="collection-operator-row">
+          <label>Show images matching</label>
+          <div class="collection-operator-toggle">
+            <button type="button" class="operator-btn active" data-op="OR">Any tag</button>
+            <button type="button" class="operator-btn" data-op="AND">All tags</button>
+          </div>
+        </div>
         <div class="detail-tags-wrap" id="collection-selected-tags"></div>
         <div style="margin-top:6px">
           <input type="text" class="detail-add-tag-input" id="collection-tag-input" placeholder="+ add tag" autocomplete="off" />
@@ -860,6 +866,12 @@ function _createCollectionModal() {
   modal.querySelector('#collection-modal-backdrop').addEventListener('click', closeCollectionModal);
   modal.querySelector('#collection-modal-cancel').addEventListener('click', closeCollectionModal);
   modal.querySelector('#collection-modal-save').addEventListener('click', saveCollection);
+  modal.querySelectorAll('.operator-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      modal.querySelectorAll('.operator-btn').forEach(b => b.classList.toggle('active', b === btn));
+      updateCollectionMatchCount();
+    });
+  });
   modal.querySelector('#collection-name-input').addEventListener('input', updateCollectionSaveBtn);
   modal.querySelector('#collection-tag-input').addEventListener('keydown', e => {
     if (e.key === 'Enter') {
@@ -896,6 +908,10 @@ function openCollectionModal(mode, col = null) {
 
   const selectedTags = _collectionModal.querySelector('#collection-selected-tags');
   selectedTags.innerHTML = '';
+  const op = isEdit ? ((col.tag_query?.operator) || 'OR') : 'OR';
+  _collectionModal.querySelectorAll('.operator-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.op === op);
+  });
   if (isEdit) {
     const tq = col.tag_query || { tags: [] };
     (tq.tags || []).forEach(name => addCollectionTagPill(name));
@@ -960,9 +976,11 @@ async function updateCollectionMatchCount() {
   if (!el) return;
   if (names.length === 0) { el.textContent = ''; return; }
   try {
-    const images = await apiFetch('/images?tags_and=' + encodeURIComponent(names.join(',')));
-    const count = Array.isArray(images) ? images.length : 0;
-    el.textContent = `${count} Got${count !== 1 ? 's' : ''} match this filter`;
+    const operator = _collectionModal.querySelector('.operator-btn.active')?.dataset.op || 'OR';
+    const param = operator === 'AND' ? 'tags_and' : 'tags';
+    const data = await apiFetch(`/images?${param}=` + encodeURIComponent(names.join(',')) + '&limit=1');
+    const count = data.total ?? 0;
+    el.textContent = `${count} Got${count !== 1 ? 's' : ''} match`;
   } catch (_) { el.textContent = ''; }
 }
 
@@ -971,17 +989,19 @@ async function saveCollection() {
   const tags = getCollectionTagNames();
   if (!name || tags.length === 0) return;
 
+  const operator = _collectionModal.querySelector('.operator-btn.active')?.dataset.op || 'OR';
+
   try {
     if (_editingCollectionId) {
       await apiFetch(`/smart-collections/${_editingCollectionId}`, {
         method: 'PATCH',
-        body: JSON.stringify({ name, tag_query: { operator: 'AND', tags } })
+        body: JSON.stringify({ name, tag_query: { operator, tags } })
       });
       if (state.activeCollection === _editingCollectionId) await loadImages();
     } else {
       await apiFetch('/smart-collections', {
         method: 'POST',
-        body: JSON.stringify({ name, tag_query: { operator: 'AND', tags } })
+        body: JSON.stringify({ name, tag_query: { operator, tags } })
       });
     }
     closeCollectionModal();
