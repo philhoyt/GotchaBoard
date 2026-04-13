@@ -3,10 +3,11 @@
 import { SPRING_EASING, floatBob, burst, shake, tagReceive } from './animations.js';
 
 export class DragStack {
-  constructor({ selection, onDrop, getDropTargets }) {
+  constructor({ selection, onDrop, getDropTargets, onDragEnd }) {
     this.selection      = selection;
     this.onDrop         = onDrop;
     this.getDropTargets = getDropTargets;
+    this.onDragEnd      = onDragEnd || (() => {});
 
     this._stackEl     = null;
     this._bobAnim     = null;
@@ -56,6 +57,8 @@ export class DragStack {
       this._primed = false;
       return;
     }
+
+    this.onDragEnd();
 
     const target = this._findDropTarget(e);
     if (target) {

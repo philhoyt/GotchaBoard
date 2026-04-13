@@ -313,12 +313,14 @@ function buildCard(image, idx) {
 
   card.querySelector('.card-inner').addEventListener('click', e => {
     if (e.target.closest('.card-select-zone')) return;
+    if (_justDragged) return;
     openDetail(image.id);
   });
 
   card.addEventListener('mousedown', e => {
     if (e.target.closest('.card-select-zone')) return;
     if (selection.has(image.id)) {
+      e.preventDefault();
       dragStack.prime(e, card, document.querySelectorAll('.image-card'));
     }
   });
@@ -1036,10 +1038,12 @@ const bulkBar   = new BulkActionBar({
   getTags:     () => state.images,  // images carry .tags[], used by manage_tags prompt
   getTagDefs:  () => state.tags,    // tag definitions with .color, used for autocomplete
 });
+let _justDragged = false;
 const dragStack = new DragStack({
   selection,
   onDrop:         handleDrop,
-  getDropTargets: () => document.querySelectorAll('[data-tag-id]')
+  getDropTargets: () => document.querySelectorAll('[data-tag-id]'),
+  onDragEnd:      () => { _justDragged = true; setTimeout(() => { _justDragged = false; }, 0); }
 });
 
 selection.addEventListener('change', () => syncSelectionUI());

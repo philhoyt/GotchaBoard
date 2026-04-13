@@ -772,7 +772,7 @@ section {
 }
 
 /* ── Drag state ───────────────────────────────────────────────── */
-body.is-dragging * { cursor: grabbing !important; }
+body.is-dragging * { cursor: grabbing !important; user-select: none !important; }
 body.is-dragging .image-card { pointer-events: none; }
 body.is-dragging [data-tag-id] { pointer-events: all !important; }
 
