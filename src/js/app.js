@@ -67,12 +67,15 @@ function truncate(s, n) { return s && s.length > n ? s.slice(0, n) + '…' : s; 
 function toast(msg, duration = 2800) {
   const el = document.createElement('div');
   el.className = 'toast';
-  el.textContent = msg;
+  el.innerHTML = `<span class="toast-message">${msg}</span>`;
   document.getElementById('toast-container').appendChild(el);
-  setTimeout(() => {
-    el.classList.add('out');
-    el.addEventListener('animationend', () => el.remove());
-  }, duration);
+  if (duration > 0) {
+    setTimeout(() => {
+      el.classList.add('out');
+      el.addEventListener('animationend', () => el.remove());
+    }, duration);
+  }
+  return el;
 }
 
 // ── Data loading ───────────────────────────────────────────────────
@@ -1318,6 +1321,75 @@ async function importData(input) {
 }
 
 // ── Event listeners ────────────────────────────────────────────────
+// ── File drop upload ───────────────────────────────────────────────
+async function uploadDroppedFiles(files) {
+  const total = files.length;
+  let done = 0;
+  let failed = 0;
+
+  const progressToast = toast(`Uploading 0 / ${total}…`, 0);
+  const updateProgress = () => {
+    const msgEl = progressToast.querySelector('.toast-message');
+    if (msgEl) msgEl.textContent = `Uploading ${done} / ${total}…`;
+  };
+
+  const queue = [...files];
+  const CONCURRENCY = 3;
+
+  const processNext = async () => {
+    while (queue.length > 0) {
+      const file = queue.shift();
+      try {
+        const formData = new FormData();
+        formData.append('image', file);
+        const res = await fetch(`${API}/images/upload`, { method: 'POST', body: formData });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const saved = await res.json();
+        done++;
+        updateProgress();
+
+        // Append immediately only when not filtered (new images are untagged)
+        const unfiltered = !state.showUntagged && !state.activeCollection &&
+                           state.activeTags.length === 0 &&
+                           state.checkedTags.length === 0 && !state.searchQuery;
+        if (unfiltered) {
+          state.images.unshift(saved);
+          state.totalImages++;
+          // Build a single card and prepend to grid
+          const grid = document.getElementById('image-grid');
+          if (msnry && grid) {
+            const card = buildCard(saved, 0);
+            grid.insertBefore(card, grid.firstChild);
+            msnry.prepended(card);
+            requestAnimationFrame(() => { if (msnry) msnry.layout(); });
+          }
+        }
+      } catch (err) {
+        failed++;
+        done++;
+        updateProgress();
+        console.error(`Upload failed for ${file.name}:`, err);
+      }
+    }
+  };
+
+  const workers = Array.from({ length: Math.min(CONCURRENCY, files.length) }, processNext);
+  await Promise.all(workers);
+
+  progressToast.classList.add('out');
+  progressToast.addEventListener('animationend', () => progressToast.remove());
+
+  const succeeded = done - failed;
+  if (failed > 0) {
+    toast(`Uploaded ${succeeded} / ${total} Got${total > 1 ? 's' : ''}. ${failed} failed.`);
+  } else {
+    toast(`${total} Got${total > 1 ? 's' : ''} uploaded!`);
+  }
+
+  updateCounts();
+  await loadTags();
+}
+
 function bindEventListeners() {
   document.getElementById('all-images-btn').addEventListener('click', () => {
     state.activeTags = [];
@@ -1462,6 +1534,45 @@ function bindEventListeners() {
     if (e.key === 'Escape' && state.detailImageId) { closeDetail(); return; }
     if (e.key === 'Escape') selection.clear();
   });
+
+  // ── Board-level file drop ────────────────────────────────────────
+  {
+    const main    = document.getElementById('main');
+    const overlay = document.getElementById('board-drop-overlay');
+    let dragCounter = 0;
+
+    const hasFiles = (e) => e.dataTransfer?.types?.includes('Files');
+
+    main.addEventListener('dragenter', e => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      dragCounter++;
+      if (dragCounter === 1) overlay.classList.remove('hidden');
+    });
+
+    main.addEventListener('dragleave', () => {
+      dragCounter--;
+      if (dragCounter <= 0) { dragCounter = 0; overlay.classList.add('hidden'); }
+    });
+
+    main.addEventListener('dragover', e => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+    });
+
+    main.addEventListener('drop', e => {
+      e.preventDefault();
+      dragCounter = 0;
+      overlay.classList.add('hidden');
+      const files = [...e.dataTransfer.files].filter(f => f.type.startsWith('image/'));
+      if (files.length) uploadDroppedFiles(files);
+    });
+
+    // Safety: prevent browser from navigating if file is dropped outside #main
+    document.addEventListener('dragover', e => e.preventDefault());
+    document.addEventListener('drop',     e => e.preventDefault());
+  }
 }
 
 // ── Init ───────────────────────────────────────────────────────────
