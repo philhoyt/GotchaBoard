@@ -25,6 +25,7 @@ export function attachTagSuggestions(input, getTagDefs, onSelect) {
   // Cached rect — read once on focus (layout is clean), reused on every
   // keystroke so we never call getBoundingClientRect() after a DOM write.
   let cachedRect = null;
+  let activeIndex = -1;
 
   const applyPosition = () => {
     if (!cachedRect) return;
@@ -33,8 +34,16 @@ export function attachTagSuggestions(input, getTagDefs, onSelect) {
     el.style.width = `${Math.max(cachedRect.width, 180)}px`;
   };
 
+  const setActive = (index) => {
+    const items = el.querySelectorAll('.mt-suggestion');
+    items.forEach((item, i) => item.classList.toggle('active', i === index));
+    activeIndex = index;
+    if (items[index]) items[index].scrollIntoView({ block: 'nearest' });
+  };
+
   const show = (val) => {
     el.innerHTML = '';
+    activeIndex = -1;
     if (!val.trim()) { el.hidden = true; return; }
     const defs    = getTagDefs();
     const lower   = val.toLowerCase();
@@ -58,7 +67,7 @@ export function attachTagSuggestions(input, getTagDefs, onSelect) {
     el.hidden = false;
   };
 
-  const hide = () => { el.hidden = true; };
+  const hide = () => { el.hidden = true; activeIndex = -1; };
 
   // Read rect while layout is guaranteed clean — before any input-driven DOM writes
   input.addEventListener('focus', () => {
@@ -66,9 +75,56 @@ export function attachTagSuggestions(input, getTagDefs, onSelect) {
     applyPosition();
   });
 
-  input.addEventListener('input',   () => show(input.value));
-  input.addEventListener('blur',    () => setTimeout(hide, 150));
-  input.addEventListener('keydown', e => { if (e.key === 'Escape' || e.key === 'Enter') hide(); });
+  input.addEventListener('input', () => show(input.value));
+  input.addEventListener('blur',  () => setTimeout(hide, 150));
+
+  input.addEventListener('keydown', e => {
+    const items = el.querySelectorAll('.mt-suggestion');
+    const count = items.length;
+    const visible = !el.hidden && count > 0;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (visible) setActive(activeIndex < count - 1 ? activeIndex + 1 : 0);
+      return;
+    }
+
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (visible) setActive(activeIndex > 0 ? activeIndex - 1 : count - 1);
+      return;
+    }
+
+    if (e.key === 'Enter') {
+      if (visible && activeIndex >= 0 && items[activeIndex]) {
+        e.preventDefault();
+        e.stopPropagation();
+        onSelect(items[activeIndex].textContent);
+        input.value = '';
+        hide();
+        return;
+      }
+      // No suggestion highlighted — fall through to the caller's Enter handler
+      hide();
+      return;
+    }
+
+    if (e.key === 'Tab' && visible && activeIndex >= 0 && items[activeIndex]) {
+      e.preventDefault();
+      onSelect(items[activeIndex].textContent);
+      input.value = '';
+      hide();
+      return;
+    }
+
+    if (e.key === 'Escape') {
+      if (visible) {
+        e.stopPropagation(); // Don't close the detail panel / modal on first Escape
+        hide();
+      }
+      return;
+    }
+  });
 
   return {
     destroy() { el.remove(); },

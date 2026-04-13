@@ -763,7 +763,8 @@ section {
   background:    var(--sug-dot, var(--ink-dim));
   flex-shrink:   0;
 }
-.mt-suggestion:hover { background: var(--surface2); }
+.mt-suggestion:hover,
+.mt-suggestion.active { background: var(--surface2); }
 
 #bulk-tag-dialog.manage-tags-dialog #bulk-tag-dialog-actions {
   padding:     14px 20px;

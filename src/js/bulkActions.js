@@ -236,8 +236,18 @@ export class BulkActionBar {
       }
     };
 
+    let activeIndex = -1;
+
+    const setActive = (index) => {
+      const items = suggestionsEl.querySelectorAll('.mt-suggestion');
+      items.forEach((item, i) => item.classList.toggle('active', i === index));
+      activeIndex = index;
+      if (items[index]) items[index].scrollIntoView({ block: 'nearest' });
+    };
+
     const showSuggestions = (val) => {
       suggestionsEl.innerHTML = '';
+      activeIndex = -1;
       if (!val.trim()) { suggestionsEl.hidden = true; return; }
       const defs  = this.getTagDefs();
       const lower = val.toLowerCase();
@@ -256,6 +266,7 @@ export class BulkActionBar {
           addTag(t.name);
           input.value = '';
           suggestionsEl.hidden = true;
+          activeIndex = -1;
         });
         suggestionsEl.appendChild(item);
       }
@@ -271,14 +282,49 @@ export class BulkActionBar {
 
     input.addEventListener('input', () => showSuggestions(input.value));
     input.addEventListener('keydown', e => {
+      const items = suggestionsEl.querySelectorAll('.mt-suggestion');
+      const count = items.length;
+      const visible = !suggestionsEl.hidden && count > 0;
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (visible) setActive(activeIndex < count - 1 ? activeIndex + 1 : 0);
+        return;
+      }
+
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (visible) setActive(activeIndex > 0 ? activeIndex - 1 : count - 1);
+        return;
+      }
+
       if (e.key === 'Enter') {
         e.preventDefault();
-        const val = input.value.trim();
-        if (val) { addTag(val); input.value = ''; suggestionsEl.hidden = true; }
+        if (visible && activeIndex >= 0 && items[activeIndex]) {
+          addTag(items[activeIndex].textContent);
+          input.value = '';
+          suggestionsEl.hidden = true;
+          activeIndex = -1;
+        } else {
+          const val = input.value.trim();
+          if (val) { addTag(val); input.value = ''; suggestionsEl.hidden = true; }
+        }
+        return;
       }
+
+      if (e.key === 'Tab' && visible && activeIndex >= 0 && items[activeIndex]) {
+        e.preventDefault();
+        addTag(items[activeIndex].textContent);
+        input.value = '';
+        suggestionsEl.hidden = true;
+        activeIndex = -1;
+        return;
+      }
+
       if (e.key === 'Escape') {
-        if (!suggestionsEl.hidden) { suggestionsEl.hidden = true; }
+        if (visible) { suggestionsEl.hidden = true; activeIndex = -1; }
         else { prompt.remove(); }
+        return;
       }
     });
     input.focus();
