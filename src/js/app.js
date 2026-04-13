@@ -1429,7 +1429,7 @@ function bindEventListeners() {
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && document.getElementById('settings-panel').style.display !== 'none') { closeSettings(); return; }
     if (e.key === 'Escape' && document.getElementById('add-got-modal').style.display !== 'none') { closeAddGotModal(); return; }
-    if (e.key === 'Escape' && state.detailImageId) closeDetail();
+    if (e.key === 'Escape' && state.detailImageId) { closeDetail(); return; }
     if (e.key === 'Escape') selection.clear();
   });
 }
