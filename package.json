@@ -2,7 +2,10 @@
   "name": "gotchaboard",
   "version": "1.0.0",
   "description": "Self-hosted local image bookmarking tool",
-  "author": "Phil Hoyt",
+  "author": {
+    "name": "Phil Hoyt",
+    "email": "noreply@users.noreply.github.com"
+  },
   "license": "MIT",
   "private": true,
   "repository": {
@@ -111,10 +114,7 @@
       ]
     },
     "win": {
-      "target": [
-        "nsis",
-        "portable"
-      ],
+      "target": ["nsis"],
       "icon": "build/icon.ico"
     },
     "nsis": {

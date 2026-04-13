@@ -3,7 +3,7 @@ name: Build & Release
 on:
   push:
     tags:
-      - 'v*'
+      - 'v*.*.*'
 
 concurrency:
   group: release-${{ github.ref }}
@@ -13,38 +13,67 @@ permissions:
   contents: write
 
 jobs:
-  build-mac:
-    runs-on: macos-latest
+  build-mac-arm64:
+    runs-on: macos-latest   # Apple Silicon
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
+
+      - name: Sync version from tag
+        run: npm version ${GITHUB_REF_NAME} --no-git-tag-version
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Rebuild native modules for Electron
-        run: npx electron-rebuild -f -w better-sqlite3
+      - name: Build frontend
+        run: npm run build
+
+      - name: Package (Mac arm64)
+        run: npx electron-builder --mac --arm64 --publish never
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mac-arm64
+          path: |
+            dist/*.dmg
+            dist/*.zip
+          if-no-files-found: error
+          retention-days: 1
+
+  build-mac-x64:
+    runs-on: macos-13   # Intel (last x64 macOS runner)
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Sync version from tag
+        run: npm version ${GITHUB_REF_NAME} --no-git-tag-version
+
+      - name: Install dependencies
+        run: npm ci
 
       - name: Build frontend
         run: npm run build
 
-      - name: Package Electron app (Mac)
-        run: npx electron-builder --mac --x64 --arm64
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Package (Mac x64)
+        run: npx electron-builder --mac --x64 --publish never
 
-      - name: Upload Mac artifacts
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: mac-builds
+          name: mac-x64
           path: |
             dist/*.dmg
             dist/*.zip
-          retention-days: 5
+          if-no-files-found: error
+          retention-days: 1
 
   build-windows:
     runs-on: windows-latest
@@ -53,29 +82,27 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
+
+      - name: Sync version from tag
+        run: npm version $env:GITHUB_REF_NAME --no-git-tag-version
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Rebuild native modules for Electron
-        run: npx electron-rebuild -f -w better-sqlite3
-
       - name: Build frontend
         run: npm run build
 
-      - name: Package Electron app (Windows)
-        run: npx electron-builder --win
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Package (Windows)
+        run: npx electron-builder --win --x64 --publish never
 
-      - name: Upload Windows artifacts
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: win-builds
+          name: win-x64
           path: dist/*.exe
-          retention-days: 5
+          if-no-files-found: error
+          retention-days: 1
 
   build-linux:
     runs-on: ubuntu-latest
@@ -84,38 +111,49 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
+
+      - name: Sync version from tag
+        run: npm version ${GITHUB_REF_NAME} --no-git-tag-version
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Rebuild native modules for Electron
-        run: npx electron-rebuild -f -w better-sqlite3
-
       - name: Build frontend
         run: npm run build
 
-      - name: Package Electron app (Linux)
-        run: npx electron-builder --linux
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Package (Linux)
+        run: npx electron-builder --linux --x64 --publish never
 
-      - name: Upload Linux artifacts
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: linux-builds
+          name: linux-x64
           path: |
             dist/*.AppImage
             dist/*.deb
-          retention-days: 5
+          if-no-files-found: error
+          retention-days: 1
 
-  release:
-    needs: [build-mac, build-windows, build-linux]
+  build-extension:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
+      - name: Zip Chrome extension
+        run: npm run ext:zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: extension
+          path: dist/save-to-gotcha-extension.zip
+          if-no-files-found: error
+          retention-days: 1
+
+  release:
+    needs: [build-mac-arm64, build-mac-x64, build-windows, build-linux, build-extension]
+    runs-on: ubuntu-latest
+    steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -134,31 +172,30 @@ jobs:
           body: |
             ## Install
 
-            | Platform | File |
-            |----------|------|
+            | Platform | Download |
+            |----------|----------|
             | Mac (Apple Silicon) | `GotchaBoard-${{ github.ref_name }}-mac-arm64.dmg` |
             | Mac (Intel) | `GotchaBoard-${{ github.ref_name }}-mac-x64.dmg` |
             | Windows | `GotchaBoard-${{ github.ref_name }}-win-x64.exe` |
             | Linux | `GotchaBoard-${{ github.ref_name }}-linux-x86_64.AppImage` |
+            | Chrome Extension | `save-to-gotcha-extension.zip` |
 
             ### Mac — first launch
             GotchaBoard is not notarized. On first launch:
             1. Open the `.dmg` and drag GotchaBoard to Applications
             2. **Right-click** (or Control-click) the app → **Open**
             3. Click **Open** in the dialog that appears
-            4. After the first launch, it opens normally
 
-            If "damaged and can't be opened" appears (rare): `xattr -cr /Applications/GotchaBoard.app`
+            If "damaged and can't be opened" appears: `xattr -cr /Applications/GotchaBoard.app`
 
             ### Windows — first launch
-            Windows SmartScreen may show a warning since the app isn't signed:
+            Windows SmartScreen may show a warning since the app isn't code-signed:
             1. Click **More info**
             2. Click **Run anyway**
 
             ### Linux
             ```bash
-            chmod +x GotchaBoard-*.AppImage
-            ./GotchaBoard-*.AppImage
+            chmod +x GotchaBoard-*.AppImage && ./GotchaBoard-*.AppImage
             ```
 
             ---
