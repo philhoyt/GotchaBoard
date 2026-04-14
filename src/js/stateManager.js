@@ -101,11 +101,11 @@ class StateManager {
       const params = new URLSearchParams(base);
       params.set('limit',  state.pageSize);
       params.set('offset', state.page);
+      params.set('sort',   state.sortOrder);
       const data = await apiFetch('/images?' + params.toString());
       if (seq !== this._loadSeq) return;
 
       const { images, total } = data;
-      if (state.sortOrder === 'saved_at_asc') images.reverse();
 
       state.totalImages = total;
 

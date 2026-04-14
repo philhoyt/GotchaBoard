@@ -280,7 +280,12 @@ router.get('/', (req, res) => {
       `SELECT COUNT(DISTINCT images.id) as c FROM images ${whereClause}`
     ).get(...params).c;
 
-    const query = `${BASE_QUERY} ${whereClause} GROUP BY images.id ORDER BY images.saved_at DESC LIMIT ? OFFSET ?`;
+    const sortParam = req.query.sort || 'saved_at_desc';
+    const orderBy = sortParam === 'saved_at_asc' ? 'images.saved_at ASC'
+                  : sortParam === 'random'        ? 'RANDOM()'
+                  :                                 'images.saved_at DESC';
+
+    const query = `${BASE_QUERY} ${whereClause} GROUP BY images.id ORDER BY ${orderBy} LIMIT ? OFFSET ?`;
     const images = db.prepare(query).all(...params, limit, offset).map(rowToImage);
 
     res.json({ images, total, limit, offset });
