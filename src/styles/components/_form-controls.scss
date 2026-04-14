@@ -82,3 +82,23 @@
   max-height: 200px;
   overflow-y: auto;
 }
+.mt-suggestion {
+  display:     flex;
+  align-items: center;
+  gap:         8px;
+  padding:     7px 12px;
+  font-size:   12px;
+  cursor:      pointer;
+  color:       var(--ink);
+}
+.mt-suggestion::before {
+  content:       '';
+  display:       inline-block;
+  width:         8px;
+  height:        8px;
+  border-radius: 50%;
+  background:    var(--sug-dot, var(--ink-dim));
+  flex-shrink:   0;
+}
+.mt-suggestion:hover,
+.mt-suggestion.active { background: var(--color-lemon); color: #111111; }
