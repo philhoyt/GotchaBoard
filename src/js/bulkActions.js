@@ -2,6 +2,7 @@
 
 import { getTagColor } from './utils/tagColor.js';
 import { createTagPill } from './components/tagPill.js';
+import { attachTagSuggestions } from './utils/tagSuggest.js';
 
 export class BulkActionBar {
   constructor({ selection, onAction, getTags, getTagDefs }) {
@@ -351,8 +352,6 @@ export class BulkActionBar {
   _openMoveToTag(ids) {
     document.getElementById('bulk-tag-prompt')?.remove();
 
-    const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-
     const makePill = (name) => {
       const defs  = this.getTagDefs();
       const t     = defs.find(d => d.name === name);
@@ -377,38 +376,51 @@ export class BulkActionBar {
       </div>
     `;
     document.body.appendChild(prompt);
-    document.getElementById('bulk-tag-input').focus();
+
+    const input = document.getElementById('bulk-tag-input');
+    input.focus();
 
     const getPills = () =>
       [...document.querySelectorAll('#bulk-tags-wrap .detail-tag-pill')].map(el => el.dataset.tag);
 
-    document.getElementById('bulk-tag-input').addEventListener('keydown', e => {
+    const addTag = (name) => {
+      name = name.trim().toLowerCase();
+      if (!name) return;
+      const wrap = document.getElementById('bulk-tags-wrap');
+      const inp  = document.getElementById('bulk-tag-input');
+      if (!getPills().includes(name)) wrap.insertBefore(makePill(name), inp);
+    };
+
+    // Attach autocomplete — must be before the keydown listener so it fires first
+    const suggest = attachTagSuggestions(input, () => this.getTagDefs(), (name) => {
+      addTag(name);
+      input.value = '';
+    });
+
+    input.addEventListener('keydown', e => {
       if (e.key === 'Enter') {
         e.preventDefault();
-        const val = e.target.value.trim();
-        if (val) {
-          const wrap  = document.getElementById('bulk-tags-wrap');
-          const input = document.getElementById('bulk-tag-input');
-          if (!getPills().includes(val)) wrap.insertBefore(makePill(val), input);
-          e.target.value = '';
-        }
+        const val = input.value.trim();
+        if (val) { addTag(val); input.value = ''; }
       }
-      if (e.key === 'Escape') prompt.remove();
+      if (e.key === 'Escape') close();
     });
 
     const apply = () => {
       const tags = getPills();
       if (tags.length === 0) return;
       if (!confirm(`This will replace all tags on ${ids.length} Gots. Continue?`)) return;
-      prompt.remove();
+      close();
       this.onAction({ action: 'move_to_tags', ids, tags, add: [], remove: [] });
     };
 
+    const close = () => { suggest.destroy(); prompt.remove(); };
+
     document.getElementById('bulk-tag-confirm').addEventListener('click', apply);
-    document.getElementById('bulk-tag-cancel').addEventListener('click', () => prompt.remove());
-    document.getElementById('bulk-tag-backdrop').addEventListener('click', () => prompt.remove());
+    document.getElementById('bulk-tag-cancel').addEventListener('click', close);
+    document.getElementById('bulk-tag-backdrop').addEventListener('click', close);
     document.addEventListener('keydown', function onKey(e) {
-      if (e.key === 'Escape') { prompt.remove(); document.removeEventListener('keydown', onKey); }
+      if (e.key === 'Escape') { close(); document.removeEventListener('keydown', onKey); }
     });
   }
 }
