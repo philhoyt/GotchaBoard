@@ -51,13 +51,19 @@ let currentCardWidth = DEFAULT_CARD_WIDTH;
 let layoutTimer     = null;
 const INITIAL_SIZE  = 200;
 const PAGE_SIZE     = 50;
+const PALETTE = ['#FF8080', '#7FEDC8', '#FFE566', '#C4AAFF', '#80CCFF', '#FFB880'];
+
+const _schedRIC  = window.requestIdleCallback
+  ? (fn) => requestIdleCallback(fn, { timeout: 500 })
+  : (fn) => setTimeout(fn, 100);
+const _cancelRIC = window.cancelIdleCallback || clearTimeout;
 
 function scheduleLayout() {
   if (layoutTimer) return;
-  layoutTimer = setTimeout(() => {
+  layoutTimer = _schedRIC(() => {
     layoutTimer = null;
     if (msnry) msnry.layout();
-  }, 100);
+  });
 }
 
 // ── Grid scale ─────────────────────────────────────────────────────
@@ -107,10 +113,12 @@ function buildCard(candidate) {
   })();
 
   const placeholderHeight = Math.round(currentCardWidth * 1.3);
+  const color = PALETTE[candidate.id % PALETTE.length];
+  const skStyle = `background:${color}28;background-image:repeating-linear-gradient(45deg,transparent,transparent 10px,${color}55 10px,${color}55 11px)`;
 
   card.innerHTML = `
-    <div class="card-image-wrap">
-      <div class="card-skeleton" style="height:${placeholderHeight}px"></div>
+    <div class="card-image-wrap" style="min-height:${placeholderHeight}px">
+      <div class="card-skeleton" style="${skStyle}"></div>
       <img class="discover-card-img" src="${esc(candidate.image_url)}" alt="">
     </div>
     <div class="discover-card-meta">
@@ -137,15 +145,27 @@ function buildCard(candidate) {
     }
   }, 10000);
 
-  img.addEventListener('load', () => {
+  img.addEventListener('load', async () => {
     clearTimeout(timeout);
     if (img.naturalWidth < 500 || img.naturalHeight < 500) {
       dismissCandidate(candidate.id, card);
       return;
     }
-    card.querySelector('.card-skeleton')?.remove();
+    try { await img.decode(); } catch (_) {}
+    const sk   = card.querySelector('.card-skeleton');
+    const wrap = card.querySelector('.card-image-wrap');
     img.classList.add('img-loaded');
-    scheduleLayout();
+    if (sk) {
+      sk.classList.add('sk-fade');
+      sk.addEventListener('transitionend', () => {
+        sk.remove();
+        if (wrap) wrap.style.minHeight = '';
+        scheduleLayout();
+      }, { once: true });
+    } else {
+      if (wrap) wrap.style.minHeight = '';
+      scheduleLayout();
+    }
   });
   img.addEventListener('error', () => {
     clearTimeout(timeout);

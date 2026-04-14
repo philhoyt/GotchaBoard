@@ -33,7 +33,7 @@
     "dist:mac": "npm run build && electron-builder --mac",
     "dist:win": "npm run build && electron-builder --win",
     "dist:linux": "npm run build && electron-builder --linux",
-    "postinstall": "electron-builder install-app-deps",
+    "postinstall": "electron-builder install-app-deps || true",
     "ext:zip": "mkdir -p dist && cd extension && zip -r ../dist/save-to-gotcha-extension.zip . -x 'store/*' -x '.*'",
     "lint": "eslint src/ server/",
     "lint:fix": "eslint src/ server/ --fix"

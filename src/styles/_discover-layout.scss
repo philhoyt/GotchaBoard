@@ -95,7 +95,7 @@ html, body {
   width: var(--card-width, 220px);
 }
 
-/* ── Candidate cards ──────────────────────���───────────────────── */
+/* ── Candidate cards ──────────────────────────────────────────── */
 .discover-card {
   border:        var(--bd);
   box-shadow:    var(--sh);
@@ -115,12 +115,33 @@ html, body {
   to { opacity: 0; transform: translateX(20px); }
 }
 
+.discover-card .card-image-wrap {
+  position:    relative;
+  overflow:    hidden;
+  line-height: 0;
+}
+
+/* Skeleton sits on top of the image and crossfades out when image is ready.
+   Background is set inline per-card (randomised palette colour + diagonal stripes). */
+.discover-card .card-skeleton {
+  position:   absolute;
+  inset:      0;
+  z-index:    1;
+  transition: opacity 0.4s ease;
+}
+.discover-card .card-skeleton.sk-fade {
+  opacity: 0;
+}
+
 .discover-card-img {
   width:      100%;
   display:    block;
   object-fit: cover;
   cursor:     pointer;
+  opacity:    0;
+  transition: opacity 0.4s ease;
 }
+.discover-card-img.img-loaded { opacity: 1; }
 
 #discover-grid:empty { min-height: 50vh; }
 
