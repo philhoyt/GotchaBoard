@@ -378,7 +378,6 @@ export class BulkActionBar {
     document.body.appendChild(prompt);
 
     const input = document.getElementById('bulk-tag-input');
-    input.focus();
 
     const getPills = () =>
       [...document.querySelectorAll('#bulk-tags-wrap .detail-tag-pill')].map(el => el.dataset.tag);
@@ -391,11 +390,13 @@ export class BulkActionBar {
       if (!getPills().includes(name)) wrap.insertBefore(makePill(name), inp);
     };
 
-    // Attach autocomplete — must be before the keydown listener so it fires first
+    // Attach autocomplete before focus() so the focus listener caches the input rect
     const suggest = attachTagSuggestions(input, () => this.getTagDefs(), (name) => {
       addTag(name);
       input.value = '';
     });
+
+    input.focus();
 
     input.addEventListener('keydown', e => {
       if (e.key === 'Enter') {
