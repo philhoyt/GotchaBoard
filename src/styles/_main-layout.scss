@@ -74,6 +74,7 @@ section {
   align-items:    stretch;
   gap:            8px;
   padding:        10px 16px;
+  height:         var(--bar-height);
   background:     var(--bg);
   border-bottom:  var(--bd);
   flex-shrink:    0;
@@ -86,8 +87,14 @@ section {
 #topbar a { -webkit-app-region: no-drag; }
 
 /* ── Electron titlebar offset (macOS traffic lights) ──────────────── */
-.electron-app #sidebar-header { padding-top: calc(14px + var(--titlebar-height)); }
-.electron-app #topbar         { padding-top: calc(10px + var(--titlebar-height)); }
+.electron-app #sidebar-header {
+  height:      calc(var(--bar-height) + var(--titlebar-height));
+  padding-top: var(--titlebar-height);
+}
+.electron-app #topbar {
+  height:      calc(var(--bar-height) + var(--titlebar-height));
+  padding-top: calc(10px + var(--titlebar-height));
+}
 .electron-app #settings-header { padding-top: calc(14px + var(--titlebar-height)); }
 .electron-app #detail-header  { padding-top: calc(12px + var(--titlebar-height)); }
 
