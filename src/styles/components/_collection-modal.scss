@@ -1,0 +1,99 @@
+/* ── Collection Modal ──────────────────────────────────────────────── */
+/* JS: src/js/collectionModal.js                                       */
+
+#collection-modal {
+  position:        fixed;
+  inset:           0;
+  z-index:         350;
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+}
+#collection-modal[hidden] { display: none; }
+#collection-modal-backdrop {
+  position:   absolute;
+  inset:      0;
+  background: rgba(0,0,0,0.45);
+}
+#collection-modal-dialog {
+  position:   relative;
+  background: var(--bg);
+  border:     var(--bd);
+  box-shadow: var(--sh-lg);
+  padding:    24px;
+  width:      440px;
+  max-width:  95vw;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+#collection-modal-title { font-size: 15px; font-weight: 700; margin-bottom: 16px; }
+
+.collection-form-row { margin-bottom: 14px; }
+.collection-form-row label {
+  display:        block;
+  font-size:      10px;
+  font-weight:    700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color:          var(--ink-dim);
+  margin-bottom:  6px;
+}
+
+#collection-name-input {
+  width:       100%;
+  padding:     8px 12px;
+  font-size:   13px;
+  border:      var(--bd);
+  background:  var(--bg);
+  color:       var(--ink);
+  font-family: inherit;
+}
+#collection-name-input:focus { outline: none; box-shadow: 2px 2px 0 var(--sh-color); }
+
+#collection-selected-tags { min-height: 24px; }
+#collection-selected-tags:empty::before {
+  content:   'No tags selected yet';
+  font-size: 11px;
+  color:     var(--ink-dim);
+}
+
+.collection-operator-row {
+  display:       flex;
+  align-items:   center;
+  gap:           10px;
+  margin-bottom: 8px;
+  label { font-size: 12px; font-weight: 600; color: var(--ink); margin: 0; }
+}
+.collection-operator-toggle { display: flex; }
+.operator-btn {
+  font-family:   inherit;
+  font-size:     11px;
+  font-weight:   600;
+  padding:       4px 10px;
+  border:        var(--bd);
+  background:    var(--surface);
+  color:         var(--ink-dim);
+  cursor:        pointer;
+  border-radius: 0;
+  transition:    background 0.1s, color 0.1s;
+  & + .operator-btn { margin-left: -2px; }
+  &.active { background: var(--color-lemon); color: var(--ink); position: relative; z-index: 1; }
+  &:hover:not(.active) { background: var(--surface2); }
+}
+
+.collection-match-count {
+  font-size:  12px;
+  color:      var(--ink-dim);
+  font-style: italic;
+  margin:     4px 0 14px;
+  min-height: 1em;
+}
+
+#collection-modal-actions {
+  display:         flex;
+  justify-content: flex-end;
+  gap:             8px;
+  margin-top:      4px;
+  padding-top:     16px;
+  border-top:      var(--bd);
+}

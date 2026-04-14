@@ -2,6 +2,7 @@ import { stateManager, state } from './stateManager.js';
 import { apiFetch } from './api.js';
 import { getTagColor } from './utils/tagColor.js';
 import { esc } from './utils/helpers.js';
+import { buildFilterChip } from './components/filterChip.js';
 
 // ── Tag list rendering ─────────────────────────────────────────────
 export function renderTagList() {
@@ -197,13 +198,6 @@ export function renderActiveFilters() {
   }
 }
 
-function buildFilterChip(label, onRemove) {
-  const chip = document.createElement('span');
-  chip.className = 'filter-chip';
-  chip.innerHTML = `${esc(label)} <button>&times;</button>`;
-  chip.querySelector('button').addEventListener('click', onRemove);
-  return chip;
-}
 
 // ── Tag management ─────────────────────────────────────────────────
 async function confirmDeleteTag(tag) {

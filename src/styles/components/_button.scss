@@ -1,0 +1,242 @@
+/* ── Buttons ───────────────────────────────────────────────────────── */
+
+/* ── Base .btn + semantic variants ──────────────────────────────── */
+.btn {
+  display:       inline-flex;
+  align-items:   center;
+  font-family:   'DM Sans', system-ui, sans-serif;
+  font-size:     12px;
+  font-weight:   500;
+  padding:       5px 12px;
+  border:        var(--bd);
+  box-shadow:    var(--sh);
+  background:    var(--bg);
+  color:         var(--ink);
+  cursor:        pointer;
+  border-radius: 0;
+  transition:    transform 0.1s ease, box-shadow 0.1s ease;
+  white-space:   nowrap;
+}
+.btn:hover {
+  transform:  translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--sh-color);
+}
+.btn:active {
+  transform:  translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--sh-color);
+}
+.btn-primary {
+  background:   var(--color-lemon);
+  color:        #111111;
+  border-color: var(--ink);
+}
+.btn-primary:hover { background: var(--color-lemon); }
+.btn-ghost  { background: var(--surface); color: var(--ink); }
+.btn-danger {
+  background:  var(--surface);
+  color:       var(--ink);
+  margin-left: auto;
+}
+.btn-danger:hover {
+  background:   var(--color-coral);
+  color:        #111111;
+  border-color: var(--ink);
+  box-shadow:   4px 4px 0 var(--sh-color);
+  transform:    translate(-1px, -1px);
+}
+
+/* ── Larger semantic buttons (modals / panels) ───────────────────── */
+.primary-btn {
+  display:       inline-flex;
+  align-items:   center;
+  padding:       7px 14px;
+  background:    var(--color-lemon);
+  color:         #111111;
+  border:        var(--bd);
+  box-shadow:    var(--sh);
+  border-radius: 0;
+  font-size:     13px;
+  font-weight:   500;
+  cursor:        pointer;
+  font-family:   inherit;
+  white-space:   nowrap;
+  transition:    transform 0.1s ease, box-shadow 0.1s ease;
+}
+.primary-btn:hover {
+  transform:  translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--sh-color);
+}
+.primary-btn:active {
+  transform:  translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--sh-color);
+}
+.primary-btn:disabled {
+  opacity:    0.5;
+  cursor:     not-allowed;
+  transform:  none;
+  box-shadow: var(--sh);
+}
+
+.ghost-btn {
+  display:       inline-flex;
+  align-items:   center;
+  padding:       7px 14px;
+  background:    var(--surface);
+  color:         var(--ink-dim);
+  border:        var(--bd);
+  box-shadow:    var(--sh-sm);
+  border-radius: 0;
+  font-size:     13px;
+  cursor:        pointer;
+  font-family:   inherit;
+  white-space:   nowrap;
+  transition:    transform 0.1s ease, box-shadow 0.1s ease;
+}
+.ghost-btn:hover {
+  transform:  translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--sh-color);
+  color:      var(--ink);
+}
+
+.danger-btn {
+  display:       inline-flex;
+  align-items:   center;
+  padding:       7px 14px;
+  background:    var(--surface);
+  color:         var(--ink);
+  border:        var(--bd);
+  box-shadow:    var(--sh-sm);
+  border-radius: 0;
+  font-size:     13px;
+  cursor:        pointer;
+  font-family:   inherit;
+  white-space:   nowrap;
+  transition:    transform 0.1s ease, box-shadow 0.1s ease, background 0.1s ease;
+}
+.danger-btn:hover {
+  background:   var(--color-coral);
+  color:        #111111;
+  border-color: var(--ink);
+  transform:    translate(-1px, -1px);
+  box-shadow:   3px 3px 0 var(--sh-color);
+}
+
+/* ── Topbar action button (Add Got etc.) ─────────────────────────── */
+.topbar-action-btn {
+  padding:         6px 14px;
+  font-size:       12px;
+  font-weight:     600;
+  font-family:     'DM Sans', system-ui, sans-serif;
+  border:          var(--bd);
+  background:      var(--color-lemon);
+  color:           #111111;
+  cursor:          pointer;
+  border-radius:   0;
+  white-space:     nowrap;
+  transition:      transform 0.1s ease, box-shadow 0.1s ease;
+  box-shadow:      var(--sh-sm);
+  text-decoration: none;
+  display:         inline-flex;
+  align-items:     center;
+}
+.topbar-action-btn:hover {
+  transform:  translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--sh-color);
+}
+.topbar-action-btn:active {
+  transform:  translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--sh-color);
+}
+
+/* ── Sidebar nav buttons ─────────────────────────────────────────── */
+.nav-btn {
+  width:           100%;
+  text-align:      left;
+  padding:         6px 10px;
+  font-size:       13px;
+  font-weight:     500;
+  cursor:          pointer;
+  display:         flex;
+  align-items:     center;
+  justify-content: space-between;
+  border:          var(--bd);
+  box-shadow:      var(--sh-sm);
+  background:      var(--surface);
+  color:           var(--ink-dim);
+  border-radius:   0;
+  transition:      transform 0.1s ease, box-shadow 0.1s ease, background 0.1s ease;
+}
+.nav-btn::after {
+  font-size: 11px;
+  content:   attr(data-count);
+  opacity:   0.7;
+}
+.nav-btn:hover {
+  background:  var(--surface2);
+  color:       var(--ink);
+  transform:   translate(-1px, -1px);
+  box-shadow:  3px 3px 0 var(--sh-color);
+}
+.nav-btn.active {
+  background:   var(--color-lemon);
+  color:        #111111;
+  border-color: var(--ink);
+}
+.nav-btn.active:hover {
+  background: var(--color-lemon);
+  transform:  translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--sh-color);
+}
+
+/* ── Icon buttons (topbar) ───────────────────────────────────────── */
+.icon-btn {
+  width:        34px;
+  height:       34px;
+  font-size:    16px;
+  cursor:       pointer;
+  display:      flex;
+  align-items:  center;
+  justify-content: center;
+  flex-shrink:  0;
+  border:       var(--bd);
+  box-shadow:   var(--sh-sm);
+  background:   var(--surface);
+  color:        var(--ink-dim);
+  border-radius: 0;
+  transition:   transform 0.1s ease, box-shadow 0.1s ease;
+}
+.icon-btn:hover {
+  transform:  translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--sh-color);
+  color:      var(--ink);
+  background: var(--surface2);
+}
+
+/* ── Grid scale toggles ──────────────────────────────────────────── */
+.grid-scale-group { display: flex; flex-shrink: 0; }
+.grid-scale-btn {
+  font-family:  'DM Sans', system-ui, sans-serif;
+  font-size:    11px;
+  font-weight:  600;
+  padding:      5px 8px;
+  border:       var(--bd);
+  background:   var(--surface);
+  color:        var(--ink-dim);
+  cursor:       pointer;
+  border-radius: 0;
+  transition:   background 0.1s ease, color 0.1s ease;
+  position:     relative;
+  user-select:  none;
+}
+.grid-scale-btn + .grid-scale-btn { margin-left: -2px; }
+.grid-scale-btn:hover {
+  background: var(--surface2);
+  color:      var(--ink);
+  z-index:    1;
+}
+.grid-scale-btn.active {
+  background: var(--color-lemon);
+  color:      #111111;
+  z-index:    2;
+  box-shadow: var(--sh-sm);
+}

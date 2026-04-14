@@ -1,0 +1,55 @@
+/* ── Sidebar Collection Items ──────────────────────────────────────── */
+/* JS: src/js/sidebar.js → renderCollections()                         */
+
+#collections-list {
+  list-style:     none;
+  display:        flex;
+  flex-direction: column;
+  gap:            4px;
+}
+
+.collection-item {
+  display:       flex;
+  align-items:   center;
+  gap:           6px;
+  padding:       6px 10px;
+  cursor:        pointer;
+  position:      relative;
+  border:        var(--bd);
+  box-shadow:    var(--sh-sm);
+  background:    var(--surface);
+  color:         var(--ink);
+  border-radius: 0;
+  transition:    transform 0.1s ease, box-shadow 0.1s ease;
+}
+.collection-item:hover {
+  transform:  translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--sh-color);
+}
+.collection-item.active {
+  background:   var(--color-sky) !important;
+  color:        #111111 !important;
+  border-color: var(--ink) !important;
+}
+
+.collection-icon    { font-size: 14px; opacity: 0.6; }
+.collection-name    { flex: 1; font-size: 12px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.collection-actions {
+  display:     none;
+  gap:         2px;
+  flex-shrink: 0;
+}
+.collection-item:hover .collection-actions { display: flex; }
+
+.collection-edit,
+.collection-delete {
+  border:        none;
+  background:    none;
+  color:         var(--ink-dim);
+  cursor:        pointer;
+  font-size:     13px;
+  padding:       2px 4px;
+  border-radius: 0;
+}
+.collection-edit:hover   { color: var(--ink); }
+.collection-delete:hover { color: var(--color-coral); }

@@ -4,8 +4,8 @@ import '@fontsource/dm-sans/500.css';
 import '../styles/main.scss';
 
 import { toggleTheme }    from './utils/theme.js';
-import { getTagColor }    from './utils/tagColor.js';
 import { calcColumnWidth, DEFAULT_CARD_WIDTH, initMasonry } from './utils/grid.js';
+import { buildCard as _buildCard } from './components/card.js';
 import { sweep }          from './animations.js';
 import { SelectionManager } from './multiselect.js';
 import { DragStack }      from './dragStack.js';
@@ -14,7 +14,7 @@ import { initImportModal } from './importModal.js';
 
 import { stateManager, state } from './stateManager.js';
 import { API, apiFetch } from './api.js';
-import { esc, debounce } from './utils/helpers.js';
+import { debounce } from './utils/helpers.js';
 import { toast } from './utils/toast.js';
 
 import { initSidebar, renderTagList, renderCollections, renderActiveFilters, createTag } from './sidebar.js';
@@ -134,85 +134,30 @@ function appendToGrid(images) {
 }
 
 function buildCard(image, idx) {
-  const card = document.createElement('div');
-  card.className = 'image-card' + (selection.has(image.id) ? ' selected' : '');
-  card.dataset.id  = image.id;
-  card.dataset.idx = idx;
-
-  const thumb = (image.thumbnail && image.thumbnail !== 'error' && image.thumbnail !== 'placeholder')
-    ? `/thumbs/${image.thumbnail}`
-    : image.filename
-      ? `/images/${image.filename}`
-      : null;
-
-  const tagBadges = (image.tags || []).map(name => {
-    const t     = state.tags.find(t => t.name === name);
-    const color = t?.color || getTagColor(name);
-    const style = color ? `style="background:${esc(color)}"` : '';
-    return `<span class="tag-badge" ${style}>${esc(name)}</span>`;
-  }).join('');
-
-  let title = image.page_title;
-  if (!title) { try { title = new URL(image.source_url).hostname; } catch { title = ''; } }
-
-  const knownDimensions = image.width && image.height;
-  const aspectRatio = knownDimensions ? (image.height / image.width) : 1.3;
-  const placeholderHeight = Math.round(currentCardWidth * aspectRatio);
-
-  card.innerHTML = `
-    <div class="card-select-zone"><div class="card-checkbox"></div></div>
-    <div class="card-inner">
-      <div class="card-image-wrap">
-        <div class="card-skeleton" style="height:${placeholderHeight}px"></div>
-        ${thumb ? `<img src="${esc(thumb)}" alt="${esc(title)}" loading="lazy">` : ''}
-      </div>
-      <div class="card-meta">
-        <div class="card-title">${esc(title)}</div>
-        <div class="card-badges">${tagBadges}</div>
-      </div>
-    </div>
-  `;
-
-  if (thumb) {
-    const img = card.querySelector('img');
-    img.addEventListener('load', () => {
-      card.querySelector('.card-skeleton')?.remove();
-      img.classList.add('img-loaded');
-      scheduleLayout();
-    });
-    img.addEventListener('error', () => {
-      const sk = card.querySelector('.card-skeleton');
-      if (sk) { sk.style.animation = 'none'; sk.style.background = 'var(--surface)'; }
-      scheduleLayout();
-    });
-  }
-
-  card.querySelector('.card-select-zone').addEventListener('click', e => {
-    e.stopPropagation();
-    if (e.shiftKey && selection.lastIndex !== null) {
-      const ids = state.images.map(i => i.id);
-      selection.rangeSelect(ids, selection.lastIndex, idx);
-    } else {
-      selection.toggle(image.id, idx);
-    }
-    syncSelectionUI();
+  return _buildCard(image, idx, {
+    isSelected:     selection.has(image.id),
+    cardWidth:      currentCardWidth,
+    tags:           state.tags,
+    scheduleLayout,
+    onSelectZone: (e, imageId, i) => {
+      if (e.shiftKey && selection.lastIndex !== null) {
+        selection.rangeSelect(state.images.map(img => img.id), selection.lastIndex, i);
+      } else {
+        selection.toggle(imageId, i);
+      }
+      syncSelectionUI();
+    },
+    onOpen: (imageId) => {
+      if (_justDragged) return;
+      openDetail(imageId);
+    },
+    onMouseDown: (e, card) => {
+      if (selection.has(image.id)) {
+        e.preventDefault();
+        dragStack.prime(e, card, document.querySelectorAll('.image-card'));
+      }
+    },
   });
-
-  card.querySelector('.card-inner').addEventListener('click', e => {
-    if (e.target.closest('.card-select-zone')) return;
-    if (_justDragged) return;
-    openDetail(image.id);
-  });
-
-  card.addEventListener('mousedown', e => {
-    if (e.target.closest('.card-select-zone')) return;
-    if (selection.has(image.id)) {
-      e.preventDefault();
-      dragStack.prime(e, card, document.querySelectorAll('.image-card'));
-    }
-  });
-
-  return card;
 }
 
 function syncSelectionUI() {

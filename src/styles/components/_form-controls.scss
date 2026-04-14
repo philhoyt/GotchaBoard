@@ -1,0 +1,84 @@
+/* ── Form Controls ─────────────────────────────────────────────────── */
+/* Shared inputs, selects, and autocomplete dropdown.                  */
+
+/* ── Search + sort (topbar) ─────────────────────────────────────── */
+#search-input {
+  flex:         1;
+  padding:      7px 12px;
+  font-size:    13px;
+  border:       var(--bd);
+  background:   var(--bg);
+  color:        var(--ink);
+  border-radius: 0;
+  box-shadow:   2px 2px 0 var(--sh-color);
+}
+#search-input:focus {
+  outline:    none;
+  box-shadow: 2px 2px 0 var(--color-lemon);
+}
+#search-input::placeholder { color: var(--ink-dimmer); }
+
+#sort-select {
+  padding:      7px 10px;
+  font-size:    13px;
+  cursor:       pointer;
+  border:       var(--bd);
+  background:   var(--bg);
+  color:        var(--ink);
+  border-radius: 0;
+  box-shadow:   2px 2px 0 var(--sh-color);
+}
+#sort-select:focus { outline: none; box-shadow: 2px 2px 0 var(--color-lemon); }
+
+/* ── Inline new-tag / new-collection forms (sidebar) ─────────────── */
+#new-tag-form,
+#new-collection-form { padding: 0 4px 8px; }
+
+#new-tag-input,
+#new-collection-input {
+  width:         100%;
+  padding:       5px 8px;
+  font-size:     12px;
+  margin-bottom: 5px;
+  border:        var(--bd);
+  background:    var(--bg);
+  color:         var(--ink);
+  border-radius: 0;
+}
+#new-tag-input:focus,
+#new-collection-input:focus { outline: none; box-shadow: 2px 2px 0 var(--sh-color); }
+
+.inline-form-actions { display: flex; gap: 4px; }
+.inline-form-actions button {
+  flex:        1;
+  padding:     4px;
+  font-size:   11px;
+  font-weight: 500;
+}
+#new-tag-save,
+#new-collection-save {
+  background:    var(--color-lemon);
+  color:         #111111;
+  border:        var(--bd-sm);
+  border-radius: 0;
+  cursor:        pointer;
+}
+#new-tag-cancel,
+#new-collection-cancel {
+  background:    var(--surface2);
+  color:         var(--ink-dim);
+  border:        var(--bd-sm);
+  border-radius: 0;
+  cursor:        pointer;
+}
+
+/* ── Tag autocomplete dropdown ───────────────────────────────────── */
+.tag-suggest-dropdown {
+  position:   fixed;
+  background: var(--bg);
+  border:     var(--bd);
+  box-shadow: var(--sh);
+  z-index:    600;
+  max-height: 200px;
+  overflow-y: auto;
+}
