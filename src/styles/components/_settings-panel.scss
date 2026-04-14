@@ -54,3 +54,12 @@
   line-height:   1.5;
 }
 .settings-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+#settings-footer {
+  padding:      16px;
+  border-top:   var(--bd);
+  flex-shrink:  0;
+  display:      flex;
+  justify-content: center;
+}
+#buy-coffee-btn { width: 100%; justify-content: center; }
