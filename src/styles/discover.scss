@@ -1,5 +1,8 @@
 @use 'tokens';
 @use 'typography';
-@use 'components';
 @use 'animations';
+@use 'components/button';
+@use 'components/toast';
+@use 'components/form-controls';
+@use 'components/tag-pill';
 @use 'discover-layout';

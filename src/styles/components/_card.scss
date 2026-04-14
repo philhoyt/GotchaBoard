@@ -1,0 +1,129 @@
+/* ── Got Card ──────────────────────────────────────────────────────── */
+/* JS: src/js/components/card.js                                       */
+
+/* Grid sizing — card width driven by --card-width CSS var */
+#image-grid .grid-sizer,
+#image-grid .image-card {
+  width: var(--card-width, 220px);
+}
+#image-grid .image-card  { margin-bottom: 12px; }
+#image-grid.compact-grid .card-meta { display: none; }
+#image-grid:empty        { min-height: 50vh; }
+
+.image-card {
+  overflow:      visible;
+  cursor:        pointer;
+  position:      relative;
+  background:    var(--surface);
+  border:        var(--bd);
+  box-shadow:    var(--sh);
+  border-radius: 0;
+  transition:    transform 0.1s ease, box-shadow 0.1s ease;
+}
+.image-card:hover {
+  transform:  translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--sh-color);
+}
+.image-card.selected {
+  outline:        3px solid var(--color-coral);
+  outline-offset: 2px;
+  box-shadow:     var(--sh);
+  transform:      none;
+}
+.image-card.selected:hover {
+  transform:  translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--sh-color);
+}
+
+.card-inner   { overflow: hidden; border-radius: 0; }
+.card-meta    { padding: 8px 10px 10px; background: var(--surface); min-height: 60px; }
+.card-title   { font-size: 12px; font-weight: 500; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 5px; }
+.card-badges  { display: flex; gap: 4px; flex-wrap: wrap; }
+
+/* Selection zone */
+.card-select-zone {
+  position:      absolute;
+  top: 0; left: 0; right: 0;
+  height:        40px;
+  z-index:       2;
+  display:       flex;
+  align-items:   flex-start;
+  padding:       8px;
+  border-radius: 0;
+  background:    none;
+  opacity:       0;
+  transition:    opacity .15s;
+}
+.image-card:hover .card-select-zone,
+.image-card.selected .card-select-zone,
+.any-selected .card-select-zone { opacity: 1; }
+
+.card-checkbox {
+  width:        20px;
+  height:       20px;
+  border-radius: 0;
+  border:       2px solid var(--ink);
+  box-shadow:   2px 2px 0 var(--ink);
+  background:   var(--bg);
+  transition:   all .15s;
+  flex-shrink:  0;
+  display:      flex;
+  align-items:  center;
+  justify-content: center;
+}
+.image-card.selected .card-checkbox {
+  background:   var(--color-lemon);
+  border-color: var(--ink);
+}
+.image-card.selected .card-checkbox::after {
+  content:     '✓';
+  color:       #111111;
+  font-size:   11px;
+  font-weight: 700;
+}
+
+/* Image loading — skeleton shimmer → fade in */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+.card-image-wrap {
+  position:    relative;
+  overflow:    hidden;
+  line-height: 0;
+}
+.card-image-wrap img {
+  width:      100%;
+  display:    block;
+  opacity:    0;
+  transition: opacity 0.25s ease;
+}
+.card-image-wrap img.img-loaded { opacity: 1; }
+
+.card-skeleton {
+  width:      100%;
+  background: linear-gradient(
+    90deg,
+    var(--surface2) 25%,
+    var(--surface)  50%,
+    var(--surface2) 75%
+  );
+  background-size: 200% 100%;
+  animation:  shimmer 1.5s ease-in-out infinite;
+}
+
+/* Empty state */
+#empty-state {
+  display:        none;
+  flex:           1;
+  align-items:    center;
+  justify-content: center;
+  flex-direction: column;
+  gap:            8px;
+  color:          var(--ink-dim);
+  text-align:     center;
+  padding:        40px;
+}
+#empty-state.visible { display: flex; }
+#empty-state .hint   { font-size: 12px; }

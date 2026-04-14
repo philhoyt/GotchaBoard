@@ -1,5 +1,22 @@
 @use 'tokens';
 @use 'typography';
-@use 'components';
 @use 'animations';
 @use 'main-layout';
+
+/* ── Components ──────────────────────────────────────────────────── */
+@use 'components/card';
+@use 'components/button';
+@use 'components/tag-pill';
+@use 'components/tag-item';
+@use 'components/collection-item';
+@use 'components/filter-chip';
+@use 'components/sidebar-header';
+@use 'components/bulk-bar';
+@use 'components/detail-panel';
+@use 'components/toast';
+@use 'components/form-controls';
+@use 'components/drag-drop';
+@use 'components/add-got-modal';
+@use 'components/settings-panel';
+@use 'components/import-modal';
+@use 'components/collection-modal';

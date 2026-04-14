@@ -1,0 +1,221 @@
+/* ── Bulk Action Bar ───────────────────────────────────────────────── */
+/* JS: src/js/bulkActions.js → BulkActionBar                           */
+
+#bulk-bar {
+  display:     none;
+  position:    fixed;
+  bottom:      24px;
+  left:        50%;
+  transform:   translateX(-50%);
+  padding:     10px 14px;
+  gap:         10px;
+  align-items: center;
+  z-index:     200;
+  min-width:   400px;
+  background:  #0D0D0D;
+  border:      2px solid #0D0D0D;
+  box-shadow:  var(--sh-lg);
+  color:       #FFFFFF;
+  border-radius: 0;
+}
+#bulk-actions { display: flex; gap: 6px; }
+#bulk-count   { color: var(--color-lemon); }
+
+.bulk-btn {
+  padding:       5px 12px;
+  font-size:     12px;
+  font-weight:   500;
+  cursor:        pointer;
+  border:        1.5px solid rgba(255,255,255,0.4);
+  color:         #FFFFFF;
+  background:    transparent;
+  border-radius: 0;
+  transition:    transform 0.1s ease, box-shadow 0.1s ease, background 0.1s ease;
+}
+.bulk-btn:hover {
+  background:   var(--color-mint);
+  color:        #111111;
+  border-color: var(--color-mint);
+}
+.bulk-btn-danger:hover {
+  background:   var(--color-coral);
+  color:        #111111;
+  border-color: var(--color-coral);
+}
+#bulk-deselect {
+  color:      rgba(255,255,255,0.5);
+  background: none;
+  border:     none;
+  cursor:     pointer;
+}
+#bulk-deselect:hover { color: #FFFFFF; }
+
+[data-theme="dark"] #bulk-bar {
+  background:   var(--color-lemon);
+  border-color: var(--ink);
+  box-shadow:   5px 5px 0 var(--color-coral);
+  color:        #111111;
+}
+[data-theme="dark"] #bulk-count         { color: #111111; }
+[data-theme="dark"] .bulk-btn           { border-color: rgba(0,0,0,0.3); color: #111111; }
+[data-theme="dark"] .bulk-btn:hover     { background: #111111; color: var(--color-lemon); border-color: #111111; }
+[data-theme="dark"] #bulk-deselect      { color: rgba(0,0,0,0.5); }
+[data-theme="dark"] #bulk-deselect:hover { color: #111111; }
+
+/* ── Bulk tag prompt (backdrop + dialog) ─────────────────────────── */
+#bulk-tag-prompt {
+  position:        fixed;
+  inset:           0;
+  z-index:         300;
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+}
+#bulk-tag-backdrop {
+  position:   absolute;
+  inset:      0;
+  background: rgba(0,0,0,0.45);
+}
+#bulk-tag-dialog {
+  position:      relative;
+  padding:       24px;
+  min-width:     340px;
+  background:    var(--bg);
+  border:        var(--bd);
+  box-shadow:    var(--sh-lg);
+  border-radius: 0;
+}
+#bulk-tag-dialog p         { font-size: 14px; margin-bottom: 12px; color: var(--ink); }
+#bulk-tag-input            { width: 100%; padding: 8px 12px; font-size: 13px; margin-bottom: 12px; border: var(--bd); background: var(--bg); color: var(--ink); border-radius: 0; }
+#bulk-tag-input:focus      { outline: none; box-shadow: 2px 2px 0 var(--sh-color); }
+#bulk-tag-dialog-actions   { display: flex; justify-content: flex-end; gap: 8px; }
+#bulk-tag-cancel,
+#bulk-tag-confirm          { padding: 7px 16px; font-size: 13px; font-weight: 500; cursor: pointer; border-radius: 0; }
+#bulk-tag-cancel  {
+  border:     var(--bd);
+  background: var(--surface);
+  color:      var(--ink);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+#bulk-tag-cancel:hover  { transform: translate(-1px,-1px); box-shadow: 3px 3px 0 var(--sh-color); }
+#bulk-tag-confirm {
+  border:     var(--bd);
+  background: var(--color-lemon);
+  color:      #111111;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+#bulk-tag-confirm:hover { transform: translate(-1px,-1px); box-shadow: 3px 3px 0 var(--sh-color); }
+
+/* ── Manage Tags modal variant ───────────────────────────────────── */
+#bulk-tag-dialog.manage-tags-dialog {
+  min-width:   440px;
+  max-width:   580px;
+  padding:     0;
+  overflow:    hidden;
+}
+
+#manage-tags-header {
+  display:         flex;
+  align-items:     baseline;
+  justify-content: space-between;
+  padding:         16px 20px 14px;
+  border-bottom:   var(--bd);
+  background:      var(--surface);
+}
+#manage-tags-title    { font-size: 14px; font-weight: 700; }
+#manage-tags-subtitle { font-size: 11px; color: var(--ink-dim); }
+
+#manage-tags-current,
+#manage-tags-add-section { padding: 14px 20px; }
+#manage-tags-current     { border-bottom: var(--bd); }
+#manage-tags-add-section #bulk-tag-dialog-actions { display: none; }
+
+.manage-tags-section-label {
+  font-size:      10px;
+  font-weight:    700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color:          var(--ink-dim);
+  margin-bottom:  10px;
+}
+.manage-tags-empty { font-size: 12px; color: var(--ink-dim); }
+
+#manage-tags-pills,
+#manage-tags-pending { display: flex; flex-wrap: wrap; gap: 6px; min-height: 28px; }
+#manage-tags-pending { margin-top: 10px; }
+
+/* ── Manage Tags pill states ─────────────────────────────────────── */
+.mt-pill {
+  display:       inline-flex;
+  align-items:   center;
+  gap:           4px;
+  font-size:     11px;
+  font-weight:   600;
+  padding:       3px 8px;
+  border:        var(--bd-sm);
+  box-shadow:    var(--sh-sm);
+  color:         #111111;
+  cursor:        pointer;
+  background:    none;
+  font-family:   inherit;
+  border-radius: 0;
+  transition:    transform 0.1s ease, box-shadow 0.1s ease, opacity 0.1s ease;
+  white-space:   nowrap;
+}
+.mt-pill:hover { transform: translate(-1px, -1px); box-shadow: 2px 2px 0 var(--sh-color); }
+
+.mt-pill-icon { font-size: 10px; line-height: 1; flex-shrink: 0; }
+
+.mt-pill-partial { opacity: 0.55; }
+.mt-pill-partial:hover { opacity: 1; }
+
+.mt-pill-remove {
+  background:      var(--surface2) !important;
+  color:           var(--ink-dim);
+  text-decoration: line-through;
+  box-shadow:      none;
+  border-color:    var(--color-coral);
+}
+.mt-pill-remove:hover { color: var(--color-coral); }
+
+.mt-pill-promote { outline: 2px solid var(--color-mint); outline-offset: 1px; }
+
+.mt-pill-add { cursor: default; }
+.mt-pill-add:hover { transform: none; box-shadow: var(--sh-sm); }
+.mt-pill-add .detail-tag-remove { border: none; background: none; cursor: pointer; font-size: 12px; padding: 0 0 0 2px; color: rgba(0,0,0,0.5); }
+.mt-pill-add .detail-tag-remove:hover { color: #111; }
+
+/* Input + suggestions */
+#manage-tags-input-wrap { position: relative; }
+#manage-tags-input {
+  width:         100%;
+  padding:       6px 10px;
+  font-size:     12px;
+  border:        var(--bd);
+  background:    var(--bg);
+  color:         var(--ink);
+  font-family:   inherit;
+  border-radius: 0;
+  min-width:     0;
+  flex:          none;
+}
+#manage-tags-input:focus { outline: none; box-shadow: 2px 2px 0 var(--sh-color); }
+
+#manage-tags-suggestions {
+  position:   absolute;
+  top:        calc(100% + 2px);
+  left:       0;
+  right:      0;
+  background: var(--bg);
+  border:     var(--bd);
+  box-shadow: var(--sh);
+  z-index:    10;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+#bulk-tag-dialog.manage-tags-dialog #bulk-tag-dialog-actions {
+  padding:    14px 20px;
+  border-top: var(--bd);
+  margin:     0;
+}

@@ -4,6 +4,7 @@ import { attachTagSuggestions } from './utils/tagSuggest.js';
 import { getTagColor } from './utils/tagColor.js';
 import { esc } from './utils/helpers.js';
 import { toast } from './utils/toast.js';
+import { createTagPill } from './components/tagPill.js';
 
 let _addGotSuggest = null;
 
@@ -79,12 +80,7 @@ export function openAddGotModal() {
     if (getModalTags().includes(name)) return;
     const t     = state.tags.find(t => t.name === name);
     const color = t?.color || getTagColor(name);
-    const pill  = document.createElement('span');
-    pill.className   = 'detail-tag-pill';
-    pill.dataset.tag = name;
-    if (color) pill.style.background = color;
-    pill.innerHTML = `${esc(name)}<button class="detail-tag-remove" title="Remove">&times;</button>`;
-    pill.querySelector('.detail-tag-remove').addEventListener('click', () => pill.remove());
+    const pill  = createTagPill(name, color, () => pill.remove());
     wrap.insertBefore(pill, input);
   };
 
