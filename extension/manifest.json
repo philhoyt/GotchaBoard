@@ -5,7 +5,9 @@
   "description": "Save images to your local GotchaBoard",
   "permissions": [
     "contextMenus",
-    "storage"
+    "storage",
+    "scripting",
+    "tabs"
   ],
   "host_permissions": [
     "http://localhost/*",

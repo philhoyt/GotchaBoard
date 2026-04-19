@@ -22,33 +22,74 @@
 
     <div id="status-bar" style="display:none"></div>
 
-    <div id="preview-container">
-      <img id="preview-img" src="" alt="Image preview">
-      <div id="preview-placeholder">No preview available</div>
-    </div>
-
-    <form id="save-form">
-      <label for="tags-input">Tags <span class="hint">comma separated</span></label>
-      <input type="text" id="tags-input" placeholder="nature, photo, reference">
-
-      <div id="form-actions">
-        <button type="button" id="cancel-btn">Cancel</button>
-        <button type="submit" id="save-btn">Save Image</button>
+    <!-- Image picker (shown when opened via toolbar icon) -->
+    <div id="picker-view" style="display:none">
+      <div id="picker-bar">
+        <span id="picker-label">Select images</span>
+        <span id="picker-count"></span>
       </div>
-    </form>
+      <div id="picker-loading">
+        <div class="spinner"></div>
+        <span>Scanning page...</span>
+      </div>
+      <div id="picker-empty" style="display:none">No images found on this page.</div>
+      <div id="picker-grid"></div>
 
-    <div id="loading" style="display:none">
-      <div class="spinner"></div>
-      <span>Saving...</span>
+      <div id="selection-bar" style="display:none">
+        <label for="picker-tags-input">Tags <span class="hint">comma separated</span></label>
+        <input type="text" id="picker-tags-input" placeholder="nature, photo, reference">
+        <div id="picker-actions">
+          <button type="button" id="picker-cancel-btn">Cancel</button>
+          <button type="button" id="picker-save-btn">Save</button>
+        </div>
+      </div>
+
+      <div id="picker-saving" style="display:none">
+        <div class="spinner"></div>
+        <span id="picker-saving-label">Saving...</span>
+      </div>
+
+      <div id="picker-success" style="display:none">
+        <div class="success-icon">✓</div>
+        <span id="picker-success-label">Saved!</span>
+      </div>
     </div>
 
-    <div id="success" style="display:none">
-      <div class="success-icon">✓</div>
-      <span>Saved!</span>
+    <!-- Save form (right-click flow only) -->
+    <div id="save-view" style="display:none">
+      <div id="preview-container">
+        <img id="preview-img" src="" alt="Image preview">
+        <div id="preview-placeholder">No preview available</div>
+      </div>
+
+      <form id="save-form">
+        <label for="tags-input">Tags <span class="hint">comma separated</span></label>
+        <input type="text" id="tags-input" placeholder="nature, photo, reference">
+
+        <div id="form-actions">
+          <button type="button" id="cancel-btn">Cancel</button>
+          <button type="submit" id="save-btn">Save Image</button>
+        </div>
+      </form>
+
+      <div id="loading" style="display:none">
+        <div class="spinner"></div>
+        <span>Saving...</span>
+      </div>
+
+      <div id="success" style="display:none">
+        <div class="success-icon">✓</div>
+        <span>Saved!</span>
+      </div>
+
+      <div id="error-state" style="display:none">
+        <p id="error-message"></p>
+      </div>
     </div>
 
-    <div id="error-state" style="display:none">
-      <p id="error-message"></p>
+    <!-- Top-level error -->
+    <div id="top-error" style="display:none">
+      <p id="top-error-message"></p>
     </div>
   </div>
   <script src="popup.js"></script>
