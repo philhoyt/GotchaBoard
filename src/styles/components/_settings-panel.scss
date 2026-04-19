@@ -53,7 +53,20 @@
   margin-bottom: 10px;
   line-height:   1.5;
 }
-.settings-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.settings-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.settings-url {
+  font-size:        12px;
+  font-family:      ui-monospace, monospace;
+  background:       var(--surface-2, #f3f4f6);
+  padding:          4px 8px;
+  border-radius:    4px;
+  color:            var(--ink);
+  flex:             1;
+  min-width:        0;
+  overflow:         hidden;
+  text-overflow:    ellipsis;
+  white-space:      nowrap;
+}
 
 #settings-footer {
   padding:      16px;

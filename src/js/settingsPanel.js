@@ -5,6 +5,7 @@ import { toast } from './utils/toast.js';
 export function openSettings() {
   document.getElementById('settings-panel').style.display   = '';
   document.getElementById('settings-overlay').style.display = '';
+  document.getElementById('server-url-display').textContent = window.location.origin;
   const themeBtn = document.getElementById('theme-toggle');
   if (themeBtn && themeBtn.classList.contains('ghost-btn')) {
     themeBtn.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀ Light mode' : '☾ Dark mode';
@@ -51,6 +52,11 @@ export function initSettingsPanel() {
   document.querySelector('.export-btn')?.addEventListener('click', exportData);
   const restoreInput = document.querySelector('.restore-input');
   if (restoreInput) restoreInput.addEventListener('change', e => importData(e.target));
+
+  document.getElementById('copy-server-url-btn').addEventListener('click', () => {
+    const url = window.location.origin;
+    navigator.clipboard.writeText(url).then(() => toast('Copied!'));
+  });
 
   document.getElementById('delete-all-btn').addEventListener('click', () => {
     document.getElementById('delete-all-initial').style.display = 'none';

@@ -26,10 +26,9 @@ body {
 }
 
 .logo {
-  font-weight: 700;
-  font-size: 15px;
-  color: #2563eb;
-  letter-spacing: -0.3px;
+  display: block;
+  height: 22px;
+  width: auto;
 }
 
 #settings-toggle {
