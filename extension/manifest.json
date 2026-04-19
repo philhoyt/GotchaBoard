@@ -3,15 +3,16 @@
   "name": "Save to Gotcha",
   "version": "1.0.0",
   "description": "Save images to your local GotchaBoard",
+  "homepage_url": "https://github.com/philhoyt/GotchaBoard/",
   "permissions": [
     "contextMenus",
     "storage",
     "scripting",
-    "tabs"
+    "tabs",
+    "activeTab"
   ],
   "host_permissions": [
-    "http://localhost/*",
-    "<all_urls>"
+    "http://localhost/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -27,6 +28,7 @@
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
-    "128": "icons/icon128.png"
+    "128": "icons/icon128.png",
+    "512": "icons/icon-512x512.png"
   }
 }

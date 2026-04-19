@@ -1,15 +1,14 @@
-Save images from any webpage to your local GotchaBoard with one right-click.
+Save images from any webpage to your local GotchaBoard.
 
-GotchaBoard is a self-hosted image bookmarking app. This extension connects to your local GotchaBoard server to save, tag, and organize images from the web.
+GotchaBoard is a self-hosted image bookmarking app. This extension connects to your local GotchaBoard server so you can save, tag, and organize images from the web — all stored privately on your own machine.
 
 HOW IT WORKS
-• Right-click any image on any webpage
-• Choose "Save to Gotcha" from the context menu
-• Add tags and notes in the popup
-• The image is saved to your local GotchaBoard library
+• Click the extension icon to scan the page for images, select one or more, add tags, and save them all at once
+• Or right-click any image and choose "Save to Gotcha" for a quick single save
+• Images are saved directly to your local GotchaBoard library
 
 REQUIREMENTS
-• GotchaBoard must be running on your computer (desktop app or dev server)
+• GotchaBoard must be running on your computer
 • Download GotchaBoard: https://github.com/philhoyt/GotchaBoard
 
 PRIVACY
@@ -18,8 +17,10 @@ PRIVACY
 • No analytics, no tracking, no data collection
 
 PERMISSIONS
-• "All URLs" — required to save images from any website via right-click. The extension fetches the image URL from the page you're on and sends it to your local server.
+• "Active tab" — required to scan the current page for images when you click the extension icon
+• "Scripting" — used to read image URLs from the active tab
 • "Context menus" — adds the "Save to Gotcha" right-click option on images
 • "Storage" — saves your server URL preference locally in Chrome
+• "Tabs" — used to identify the active tab when the picker is opened
 
 Open source: https://github.com/philhoyt/GotchaBoard
