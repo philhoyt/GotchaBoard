@@ -30,7 +30,7 @@
     "import:pinterest": "node import/pinterest.js",
     "pack": "npm run build && electron-builder --dir",
     "dist": "npm run build && electron-builder",
-    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:mac": "npm run build && node build/dist-mac.js",
     "dist:win": "npm run build && electron-builder --win",
     "dist:linux": "npm run build && electron-builder --linux",
     "postinstall": "electron-builder install-app-deps || true",
@@ -56,8 +56,10 @@
     "uuid": "^9.0.1"
   },
   "devDependencies": {
+    "@electron/notarize": "^3.1.1",
     "@eslint/js": "^10.0.1",
     "concurrently": "^9.2.1",
+    "dotenv": "^17.4.2",
     "electron": "^35.7.5",
     "electron-builder": "^26.8.1",
     "electron-rebuild": "^3.2.9",
@@ -114,8 +116,11 @@
         }
       ],
       "icon": "build/icon.icns",
-      "hardenedRuntime": false,
-      "gatekeeperAssess": false
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.inherit.plist",
+      "afterSign": "./build/notarize.js"
     },
     "dmg": {
       "title": "${productName} ${version}",
