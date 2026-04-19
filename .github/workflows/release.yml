@@ -34,6 +34,12 @@ jobs:
 
       - name: Package (Mac arm64)
         run: npx electron-builder --mac --arm64 --publish never
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
       - uses: actions/upload-artifact@v4
         with:
@@ -149,12 +155,7 @@ jobs:
             | Chrome Extension | `save-to-gotcha-extension.zip` |
 
             ### Mac — first launch
-            GotchaBoard is not notarized. On first launch:
-            1. Open the `.dmg` and drag GotchaBoard to Applications
-            2. **Right-click** (or Control-click) the app → **Open**
-            3. Click **Open** in the dialog that appears
-
-            If "damaged and can't be opened" appears: `xattr -cr /Applications/GotchaBoard.app`
+            GotchaBoard is signed and notarized. Open the `.dmg`, drag GotchaBoard to Applications, and launch normally.
 
             ### Windows — first launch
             Windows SmartScreen may show a warning since the app isn't code-signed:
