@@ -10,7 +10,7 @@ No cloud. No subscriptions. Your images live in a SQLite database on your own ma
 
 ## Features
 
-- Chrome extension — right-click any image on any page to save it instantly.
+- Chrome extension — click the toolbar icon to browse and multi-select images on the page, or right-click any image for a quick single save.
 - Collections — freeform tags; collections use AND/OR logic across multiple tags.
 - Drag and drop — select multiple cards, drag the stack onto a tag in the sidebar.
 - Discover feed — crawls RSS feeds and linked pages, queues images for you to save or dismiss.
@@ -32,21 +32,7 @@ Download the latest release for your platform from the [Releases page](../../rel
 
 ### macOS — first launch
 
-GotchaBoard is not notarized (I'm not paying Apple $99/year for a free app). On first launch:
-
-1. Open the `.dmg` and drag **GotchaBoard** to **Applications**.
-2. Right-click the app and choose **Open**.
-3. Click **Open** in the security dialog.
-
-After the first launch it opens normally.
-
-If right-click > Open does not work, go to **System Settings > Privacy and Security** and click **Open Anyway**.
-
-If macOS says the app is "damaged and can't be opened" (rare — the build is ad-hoc signed, but some macOS versions are strict about quarantine):
-
-```bash
-xattr -cr /Applications/GotchaBoard.app
-```
+GotchaBoard is signed and notarized. Open the `.dmg`, drag **GotchaBoard** to **Applications**, and launch normally.
 
 ### Windows — first launch
 
@@ -63,7 +49,9 @@ chmod +x GotchaBoard-*.AppImage
 
 Install **Save to Gotcha** from the [Chrome Web Store](https://chrome.google.com/webstore/detail/EXTENSION_ID_HERE) — one click, no developer mode needed.
 
-Right-click any image on any webpage → **Save to Gotcha** → add tags → done.
+**Toolbar icon** — click the extension icon to scan the page for images, select one or more, add shared tags, and save them all at once.
+
+**Right-click** any image → **Save to Gotcha** → add tags → done.
 
 The extension connects to your local GotchaBoard server at `http://localhost:47315` by default. If you need to change the port, click the ⚙ icon in the extension popup and update the server URL.
 
