@@ -523,6 +523,43 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.appendChild(banner);
   });
 
+  // ── New-got detection on window focus / tab visibility ────────────
+  function isUnfiltered() {
+    return !state.activeTags.length && !state.activeCollection &&
+           !state.showUntagged && !state.searchQuery &&
+           state.sortOrder === 'saved_at_desc';
+  }
+
+  async function checkForNewGots() {
+    if (state.loading || _renderingGrid) return;
+    try {
+      const { total } = await apiFetch('/images/counts');
+      const newCount = total - state.totalImages;
+      if (newCount <= 0) return;
+
+      const scrollEl = document.getElementById('grid-scroll');
+      if (isUnfiltered() && scrollEl.scrollTop === 0) {
+        stateManager.loadImages();
+      } else {
+        showNewGotsNudge(newCount);
+      }
+    } catch { /* best-effort */ }
+  }
+
+  function showNewGotsNudge(count) {
+    document.getElementById('new-gots-nudge')?.remove();
+    const nudge = document.createElement('button');
+    nudge.id = 'new-gots-nudge';
+    nudge.textContent = `↑ ${count} new got${count !== 1 ? 's' : ''} — click to refresh`;
+    nudge.addEventListener('click', () => { nudge.remove(); stateManager.loadImages(); });
+    document.getElementById('grid-scroll').prepend(nudge);
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') checkForNewGots();
+  });
+  window.addEventListener('focus', checkForNewGots);
+
   stateManager.loadAll().catch(() => {
     document.getElementById('image-grid').innerHTML = `
       <div style="padding:40px;text-align:center;color:#dc2626">

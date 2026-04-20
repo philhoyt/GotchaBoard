@@ -120,3 +120,20 @@ section {
   min-height: 0;
 }
 #image-grid { padding: 12px; }
+
+/* ── New gots nudge ────────────────────────────────────────────────── */
+#new-gots-nudge {
+  display:      block;
+  width:        100%;
+  padding:      10px 16px;
+  background:   var(--color-mint);
+  color:        #111111;
+  border:       none;
+  border-bottom: var(--bd);
+  font-size:    13px;
+  font-weight:  600;
+  cursor:       pointer;
+  text-align:   center;
+  transition:   background 0.15s;
+}
+#new-gots-nudge:hover { background: var(--color-lemon); }
