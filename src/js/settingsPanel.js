@@ -7,6 +7,7 @@ export function openSettings() {
   document.getElementById('settings-overlay').style.display = '';
   document.getElementById('server-url-display').textContent = window.location.origin;
   document.getElementById('app-version').textContent = `v${__APP_VERSION__}`;
+  document.getElementById('releases-link').textContent = 'Release notes';
   const themeBtn = document.getElementById('theme-toggle');
   if (themeBtn && themeBtn.classList.contains('ghost-btn')) {
     themeBtn.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀ Light mode' : '☾ Dark mode';

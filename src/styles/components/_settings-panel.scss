@@ -78,8 +78,20 @@
   gap:             8px;
 }
 #buy-coffee-btn { width: 100%; justify-content: center; }
+#settings-footer-meta {
+  display:     flex;
+  align-items: center;
+  gap:         12px;
+}
 #app-version {
-  font-size:  11px;
-  color:      var(--ink-dim);
+  font-size:   11px;
+  color:       var(--ink-dim);
   font-weight: 500;
+}
+#releases-link {
+  font-size:   11px;
+  color:       var(--ink-dim);
+  font-weight: 500;
+  text-decoration: underline;
+  &:hover { color: var(--ink); }
 }
