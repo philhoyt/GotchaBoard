@@ -37,3 +37,4 @@ node
 
 # Internal development docs (prompts, mockups, scope files)
 docs/
+CLAUDE.md
