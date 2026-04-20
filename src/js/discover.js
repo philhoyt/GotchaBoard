@@ -484,6 +484,22 @@ function closeSettings() {
 
 // ── Run discovery ──────────────────────────────────────────────────
 let _discoverPollTimer = null;
+let _idleCheckTimer    = null;
+
+function startIdleCheck() {
+  stopIdleCheck();
+  _idleCheckTimer = setInterval(async () => {
+    try {
+      const s = await apiFetch('/discover/running');
+      if (s.running) { stopIdleCheck(); startDiscoverPolling(); }
+    } catch (_) {}
+  }, 30000);
+}
+
+function stopIdleCheck() {
+  clearInterval(_idleCheckTimer);
+  _idleCheckTimer = null;
+}
 
 function startDiscoverPolling() {
   const bar     = document.getElementById('discover-progress');
@@ -517,6 +533,7 @@ function stopDiscoverPolling() {
     b.disabled    = false;
     b.textContent = 'Run Discovery';
   });
+  startIdleCheck();
 }
 
 async function runDiscovery() {
@@ -578,5 +595,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   try {
     const s = await apiFetch('/discover/running');
     if (s.running) startDiscoverPolling();
+    else startIdleCheck();
   } catch (_) {}
 });
