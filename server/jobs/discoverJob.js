@@ -33,8 +33,8 @@ function startJobs() {
   // Source URL crawler + link hops — daily at 2am
   cron.schedule('0 2 * * *', safe('source-crawler', runSourceCrawler));
 
-  // RSS / scrape fetcher — every hour
-  cron.schedule('0 * * * *', safe('rss-scraper', runRssScraper));
+  // RSS / scrape fetcher — daily at 3am
+  cron.schedule('0 3 * * *', safe('rss-scraper', runRssScraper));
 
   // Promote any pending candidates every 15 minutes
   cron.schedule('*/15 * * * *', safe('promote-pending', promoteAllPending));
