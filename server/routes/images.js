@@ -78,7 +78,10 @@ async function handleUpload(req, res) {
     const { width, height } = await readDimensions(destPath);
 
     const imageId = uuidv4();
-    const rawTags = req.body.tags ? JSON.parse(req.body.tags) : [];
+    let rawTags = [];
+    if (req.body.tags) {
+      try { rawTags = JSON.parse(req.body.tags); } catch { return res.status(400).json({ error: 'Invalid tags format' }); }
+    }
     const tagIds = Array.isArray(rawTags) && rawTags.length > 0 ? upsertTags(rawTags) : [];
     const notes = req.body.notes || null;
     const page_title = req.body.page_title || req.file.originalname || null;
@@ -169,7 +172,9 @@ function buildImageFilter(query) {
   if (collection) {
     const col = db.prepare('SELECT tag_query FROM smart_collections WHERE id = ?').get(collection);
     if (col) {
-      const { operator = 'AND', tags: colTags = [], exclude_tags = [] } = JSON.parse(col.tag_query);
+      let parsed;
+      try { parsed = JSON.parse(col.tag_query); } catch { return res.status(400).json({ error: 'Corrupted collection query' }); }
+      const { operator = 'AND', tags: colTags = [], exclude_tags = [] } = parsed;
       if (colTags.length > 0) {
         if (operator === 'AND') {
           where.push(`images.id IN (

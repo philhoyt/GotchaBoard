@@ -8,11 +8,19 @@ const { db } = require('../db');
 const IMAGE_EXTS = new Set(['.jpg','.jpeg','.png','.gif','.webp','.avif','.svg']);
 const MIN_DIMENSION = 200; // ignore tiny images (icons, spacers)
 
+// ── Private IP blocklist ───────────────────────────────────────────
+const PRIVATE_HOST_RE = /^(localhost|127\.\d+\.\d+\.\d+|::1|0\.0\.0\.0|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+|192\.168\.\d+\.\d+)$/i;
+
+function isPrivateHost(hostname) {
+  return PRIVATE_HOST_RE.test(hostname);
+}
+
 // ── fetchText ──────────────────────────────────────────────────────
 function fetchText(rawUrl, timeout = 10000) {
   return new Promise((resolve, reject) => {
     let url;
     try { url = new URL(rawUrl); } catch (e) { return reject(e); }
+    if (isPrivateHost(url.hostname)) return reject(new Error(`Blocked private host: ${url.hostname}`));
 
     const lib = url.protocol === 'https:' ? https : http;
     const req = lib.get(rawUrl, {
