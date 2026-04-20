@@ -89,6 +89,11 @@ db.exec(`
     crawled_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
+  CREATE TABLE IF NOT EXISTS discover_blocked_domains (
+    domain TEXT PRIMARY KEY,
+    blocked_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
   CREATE INDEX IF NOT EXISTS idx_candidates_status   ON discover_candidates(status);
   CREATE INDEX IF NOT EXISTS idx_candidates_score    ON discover_candidates(score DESC);
   CREATE INDEX IF NOT EXISTS idx_candidates_image_url ON discover_candidates(image_url);

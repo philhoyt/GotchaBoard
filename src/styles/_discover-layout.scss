@@ -231,6 +231,21 @@ html, body {
   color:      #111111;
 }
 
+.discover-block-btn {
+  padding:     5px 8px;
+  font-size:   11px;
+  background:  var(--surface2);
+  color:       var(--ink-dim);
+  border:      var(--bd-sm);
+  cursor:      pointer;
+  border-radius: 0;
+  transition:  background 0.1s, color 0.1s;
+}
+.discover-block-btn:hover {
+  background: #111111;
+  color:      var(--color-coral);
+}
+
 /* ── Empty / loading states ───────────────────────────────────── */
 #discover-empty,
 #discover-loading {

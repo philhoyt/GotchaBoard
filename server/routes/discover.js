@@ -121,6 +121,36 @@ router.post('/:id/dismiss', (req, res) => {
   }
 });
 
+// ── POST /api/discover/:id/block-source ───────────────────────────
+router.post('/:id/block-source', (req, res) => {
+  try {
+    const candidate = db.prepare('SELECT * FROM discover_candidates WHERE id = ?').get(req.params.id);
+    if (!candidate) return res.status(404).json({ error: 'Candidate not found' });
+
+    let domain;
+    try { domain = new URL(candidate.page_url || candidate.image_url).hostname; }
+    catch { return res.status(400).json({ error: 'Could not determine source domain' }); }
+
+    let dismissed = 0;
+    db.transaction(() => {
+      db.prepare('INSERT OR IGNORE INTO discover_blocked_domains (domain) VALUES (?)').run(domain);
+      dismissed = db.prepare(`
+        UPDATE discover_candidates SET status = 'dismissed'
+        WHERE status NOT IN ('saved')
+          AND (page_url LIKE ? OR image_url LIKE ?)
+      `).run(`%${domain}%`, `%${domain}%`).changes;
+      if (candidate.source_id) {
+        db.prepare('DELETE FROM discover_sources WHERE id = ?').run(candidate.source_id);
+      }
+    })();
+
+    res.json({ domain, dismissed, source_deleted: !!candidate.source_id });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // ── GET /api/discover/sources ──────────────────────────────────────
 router.get('/sources', (req, res) => {
   try {

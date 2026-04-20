@@ -112,6 +112,8 @@ function buildCard(candidate) {
     catch (_) { return candidate.source_type; }
   })();
 
+  card.dataset.domain = sourceDomain;
+
   const placeholderHeight = Math.round(currentCardWidth * 1.3);
   const color = PALETTE[candidate.id % PALETTE.length];
   const skStyle = `background:${color}28;background-image:repeating-linear-gradient(45deg,transparent,transparent 10px,${color}55 10px,${color}55 11px)`;
@@ -264,6 +266,11 @@ function openSaveDialog(candidate) {
   const overlay = document.getElementById('detail-overlay');
   const content = document.getElementById('detail-content');
 
+  const sourceDomain = (() => {
+    try { return new URL(candidate.page_url || candidate.image_url).hostname.replace('www.', ''); }
+    catch (_) { return candidate.source_type; }
+  })();
+
   const getDialogTags = () =>
     [...document.querySelectorAll('#save-dialog-tags-wrap .detail-tag-pill')].map(el => el.dataset.tag);
 
@@ -301,6 +308,9 @@ function openSaveDialog(candidate) {
     <div class="detail-actions">
       <button class="primary-btn" id="save-dialog-confirm">Save Got</button>
       <button class="ghost-btn"   id="save-dialog-cancel">Cancel</button>
+    </div>
+    <div class="detail-actions" style="margin-top:8px">
+      <button class="discover-block-btn" id="save-dialog-block" style="width:100%">⊘ Block this source</button>
     </div>
   `;
 
@@ -345,6 +355,11 @@ function openSaveDialog(candidate) {
   });
 
   document.getElementById('save-dialog-cancel').addEventListener('click', closeSaveDialog);
+
+  document.getElementById('save-dialog-block').addEventListener('click', async () => {
+    closeSaveDialog();
+    await blockSource(candidate.id, sourceDomain);
+  });
 }
 
 function closeSaveDialog() {
@@ -370,6 +385,27 @@ async function dismissCandidate(id, card) {
     });
   } catch (err) {
     toast('Failed to dismiss');
+  }
+}
+
+// ── Block source ───────────────────────────────────────────────────
+async function blockSource(id, domain) {
+  try {
+    const { dismissed, source_deleted } = await apiFetch(`/discover/${id}/block-source`, { method: 'POST' });
+    const cards = [...document.querySelectorAll(`.discover-card[data-domain="${CSS.escape(domain)}"]`)];
+    cards.forEach(card => {
+      card.classList.add('dismissing');
+      card.addEventListener('animationend', () => {
+        if (msnry) { msnry.remove(card); msnry.layout(); } else { card.remove(); }
+      }, { once: true });
+    });
+    const msg = source_deleted
+      ? `Blocked ${domain} and removed its source`
+      : `Blocked ${domain} — ${dismissed} got${dismissed !== 1 ? 's' : ''} removed`;
+    toast(msg, 4000);
+    if (document.querySelectorAll('.discover-card').length - cards.length === 0) showState('empty');
+  } catch (err) {
+    toast(`Failed to block source: ${err.message}`);
   }
 }
 

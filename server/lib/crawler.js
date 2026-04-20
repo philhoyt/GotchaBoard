@@ -117,12 +117,20 @@ function isAlreadyKnown(imageUrl) {
 }
 
 // ── queueCandidate ────────────────────────────────────────────────
+function isBlockedDomain(url) {
+  try {
+    const { hostname } = new URL(url);
+    return !!db.prepare('SELECT 1 FROM discover_blocked_domains WHERE domain = ?').get(hostname);
+  } catch { return false; }
+}
+
 function queueCandidate({ image_url, page_url, page_title, source_type, source_id = null, source_query = null }) {
   // Upgrade http → https for consistency
   if (image_url.startsWith('http://')) {
     image_url = 'https://' + image_url.slice(7);
   }
   if (isAlreadyKnown(image_url)) return false;
+  if (isBlockedDomain(page_url || image_url)) return false;
   try {
     db.prepare(`
       INSERT OR IGNORE INTO discover_candidates
