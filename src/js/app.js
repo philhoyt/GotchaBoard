@@ -110,10 +110,19 @@ function renderGrid() {
   requestAnimationFrame(() => {
     if (msnry) msnry.layout();
     _renderingGrid = false;
+    fillViewportIfNeeded();
   });
 
   syncSelectionUI();
   renderActiveFilters();
+}
+
+function fillViewportIfNeeded() {
+  const el = document.getElementById('grid-scroll');
+  if (!el || state.loading || state.images.length >= state.totalImages) return;
+  if (el.scrollHeight - el.clientHeight < el.clientHeight) {
+    stateManager.loadImages(true);
+  }
 }
 
 function appendToGrid(images) {
@@ -130,6 +139,7 @@ function appendToGrid(images) {
   requestAnimationFrame(() => {
     if (msnry) msnry.layout();
     _renderingGrid = false;
+    fillViewportIfNeeded();
   });
 }
 
@@ -230,6 +240,7 @@ function setCardWidth(w) {
   localStorage.setItem('gotcha-card-width', w);
   updateCardWidth();
   if (msnry) msnry.layout();
+  fillViewportIfNeeded();
 }
 
 // ── Board-level file drop upload ───────────────────────────────────
@@ -493,6 +504,7 @@ document.addEventListener('DOMContentLoaded', () => {
     resizeTimer = setTimeout(() => {
       updateCardWidth();
       if (msnry) msnry.layout();
+      fillViewportIfNeeded();
     }, 150);
   });
 
