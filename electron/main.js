@@ -1,8 +1,9 @@
 'use strict';
 
 const { app, BrowserWindow, shell } = require('electron');
-const path = require('path');
-const net  = require('net');
+const path  = require('path');
+const net   = require('net');
+const https = require('https');
 
 app.setName('Gotcha');
 
@@ -87,6 +88,41 @@ async function createWindow(port) {
   });
 
   mainWindow.on('closed', () => { mainWindow = null; });
+
+  mainWindow.webContents.once('did-finish-load', () => checkForUpdate(mainWindow));
+}
+
+// ── Update check ───────────────────────────────────────────────────
+function semverNewer(latest, current) {
+  const p = v => v.split('.').map(Number);
+  const [lA, lB, lC] = p(latest);
+  const [cA, cB, cC] = p(current);
+  if (lA !== cA) return lA > cA;
+  if (lB !== cB) return lB > cB;
+  return lC > cC;
+}
+
+function checkForUpdate(win) {
+  const current = app.getVersion();
+  const req = https.get({
+    hostname: 'api.github.com',
+    path:     '/repos/philhoyt/GotchaBoard/releases/latest',
+    headers:  { 'User-Agent': `GotchaBoard/${current}` },
+  }, res => {
+    let body = '';
+    res.on('data', chunk => { body += chunk; });
+    res.on('end', () => {
+      try {
+        const { tag_name, html_url } = JSON.parse(body);
+        const latest = tag_name.replace(/^v/, '');
+        if (semverNewer(latest, current)) {
+          win.webContents.send('update-available', { version: latest, url: html_url });
+        }
+      } catch { /* malformed response — ignore */ }
+    });
+  });
+  req.on('error', () => { /* network unavailable — ignore */ });
+  req.end();
 }
 
 app.whenReady().then(async () => {

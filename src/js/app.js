@@ -508,6 +508,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 150);
   });
 
+  window.electronAPI?.onUpdateAvailable(({ version, url }) => {
+    if (localStorage.getItem('update-dismissed') === version) return;
+    const banner = document.createElement('div');
+    banner.id = 'update-banner';
+    banner.innerHTML =
+      `<span>GotchaBoard v${version} is available</span>` +
+      `<a href="${url}" target="_blank" rel="noopener noreferrer">Download</a>` +
+      `<button class="update-banner-dismiss" aria-label="Dismiss">✕</button>`;
+    banner.querySelector('.update-banner-dismiss').addEventListener('click', () => {
+      localStorage.setItem('update-dismissed', version);
+      banner.remove();
+    });
+    document.body.appendChild(banner);
+  });
+
   stateManager.loadAll().catch(() => {
     document.getElementById('image-grid').innerHTML = `
       <div style="padding:40px;text-align:center;color:#dc2626">
