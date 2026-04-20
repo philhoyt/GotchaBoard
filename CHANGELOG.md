@@ -2,6 +2,15 @@
 
 All notable changes to GotchaBoard are documented here.
 
+## [1.1.1] - 2026-04-20
+
+### Added
+- Settings panel now shows the current app version and a "Release notes" link to the GitHub releases page.
+- Grid auto-refreshes when you return to the app after saving via the Chrome extension. If you're filtered or scrolled down, a mint banner appears instead so you don't lose your place.
+
+### Changed
+- GitHub release notes now pull directly from CHANGELOG.md instead of the auto-generated commit list.
+
 ## [1.1.0] - 2026-04-20
 
 ### Added
