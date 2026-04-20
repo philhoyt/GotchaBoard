@@ -47,7 +47,7 @@ chmod +x GotchaBoard-*.AppImage
 
 ## Chrome Extension
 
-Install **Save to Gotcha** from the [Chrome Web Store](https://chrome.google.com/webstore/detail/EXTENSION_ID_HERE) — one click, no developer mode needed.
+Install **Save to Gotcha** from the [Chrome Web Store](https://chrome.google.com/webstore/detail/mbbheknbgginndgjnagcjdjbdpinmghd) — one click, no developer mode needed.
 
 **Toolbar icon** — click the extension icon to scan the page for images, select one or more, add shared tags, and save them all at once.
 
