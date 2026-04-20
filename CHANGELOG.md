@@ -2,7 +2,16 @@
 
 All notable changes to GotchaBoard are documented here.
 
-## [Unreleased]
+## [1.1.0] - 2026-04-20
+
+### Added
+- Block source in Discover — open any card's save panel and click "⊘ Block this source" to dismiss all candidates from that domain and prevent future crawls from re-adding them. If the domain came from a user-added RSS/scrape source, that source is also removed.
+- Discover cycle now shows the progress UI automatically when the daily cron job fires, not just when triggered manually.
+
+### Fixed
+- Hardened JSON.parse calls in the image upload and smart collection filter routes — malformed input now returns a 400 instead of crashing the request.
+- RSS crawler now blocks requests to private/loopback IP addresses, preventing SSRF via user-added sources.
+- RSS scraper frequency reduced from hourly to daily (3 AM) to reduce background network usage.
 
 ### Changed
 - Mac releases now ship DMG only — ZIP removed
