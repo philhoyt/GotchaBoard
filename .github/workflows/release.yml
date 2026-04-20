@@ -44,9 +44,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: mac-arm64
-          path: |
-            dist/*.dmg
-            dist/*.zip
+          path: dist/*.dmg
           if-no-files-found: error
           retention-days: 1
 
