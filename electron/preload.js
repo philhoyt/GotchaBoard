@@ -10,4 +10,5 @@ document.addEventListener('DOMContentLoaded', () => {
 
 contextBridge.exposeInMainWorld('electronAPI', {
   onUpdateAvailable: (cb) => ipcRenderer.on('update-available', (_e, data) => cb(data)),
+  openLocalFile: (filename) => ipcRenderer.invoke('open-image-file', filename),
 });

@@ -9,6 +9,10 @@ import { createTagPill } from './components/tagPill.js';
 let _detailSuggest = null;
 let _sweepCards    = null; // set by initDetailPanel
 
+function isNavigable(url) {
+  try { return /^https?:/.test(new URL(url).protocol); } catch { return false; }
+}
+
 // ── Open / close ───────────────────────────────────────────────────
 export async function openDetail(imageId) {
   state.detailImageId = imageId;
@@ -48,10 +52,7 @@ function buildDetailHTML(image) {
     <div class="detail-image-wrap">
       ${imgSrc ? `<img src="${esc(imgSrc)}" alt="${esc(image.page_title || '')}">` : '<div style="height:120px;background:#f3f4f6;display:flex;align-items:center;justify-content:center;font-size:12px;color:#9ca3af">No preview</div>'}
     </div>
-    <div class="detail-field">
-      <div class="detail-label">Source</div>
-      <div class="detail-value-url"><a href="${esc(image.source_url)}" target="_blank" rel="noopener" title="${esc(image.source_url)}">${esc(image.source_url)}</a></div>
-    </div>
+    ${isNavigable(image.source_url) ? `<div class="detail-field"><div class="detail-label">Source</div><div class="detail-value-url"><a href="${esc(image.source_url)}" target="_blank" rel="noopener" title="${esc(image.source_url)}">${esc(image.source_url)}</a></div></div>` : ''}
     <div class="detail-field">
       <div class="detail-label">Title</div>
       <input type="text" class="detail-title-input" id="detail-title-input"
@@ -68,7 +69,8 @@ function buildDetailHTML(image) {
       </div>
     </div>
     <div class="detail-actions">
-      <button class="btn btn-ghost" id="detail-open-source">Open Source</button>
+      ${(isNavigable(image.page_url) || isNavigable(image.source_url)) ? '<button class="btn btn-ghost" id="detail-open-source">Open Source</button>' : ''}
+      ${window.electronAPI ? '<button class="btn btn-ghost" id="detail-open-local">Open File</button>' : ''}
       <button class="btn btn-danger" id="detail-delete">Delete</button>
     </div>
   `;
@@ -167,7 +169,14 @@ function bindDetailEvents(image) {
     if (e.key === 'Escape') addInput.blur();
   });
 
-  document.getElementById('detail-open-source').addEventListener('click', () => window.open(image.source_url, '_blank', 'noopener'));
+  document.getElementById('detail-open-source')?.addEventListener('click', () => {
+    const url = isNavigable(image.page_url) ? image.page_url : image.source_url;
+    window.open(url, '_blank', 'noopener');
+  });
+
+  document.getElementById('detail-open-local')?.addEventListener('click', () => {
+    window.electronAPI.openLocalFile(image.filename);
+  });
 
   document.getElementById('detail-delete').addEventListener('click', async () => {
     if (!confirm('Delete this Got? This cannot be undone.')) return;

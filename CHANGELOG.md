@@ -2,6 +2,16 @@
 
 All notable changes to GotchaBoard are documented here.
 
+## [1.1.3] - 2026-04-21
+
+### Added
+- Detail panel now has an "Open File" button (Electron only) that opens the locally saved image in the system's default viewer.
+
+### Fixed
+- "Open Source" button now opens the page the image was saved from (`page_url`) rather than the raw image URL, and is hidden when no navigable URL exists (e.g. images saved via drag-and-drop).
+- Source URL field in the detail panel is hidden for images with no real source URL (previously showed `local://upload`).
+- `npm start` now always recompiles `better-sqlite3` for Electron before launching, preventing the NODE_MODULE_VERSION mismatch after running `npm run dev`.
+
 ## [1.1.2] - 2026-04-21
 
 ### Fixed

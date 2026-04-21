@@ -1,6 +1,6 @@
 'use strict';
 
-const { app, BrowserWindow, shell } = require('electron');
+const { app, BrowserWindow, shell, ipcMain } = require('electron');
 const path  = require('path');
 const net   = require('net');
 const https = require('https');
@@ -124,6 +124,11 @@ function checkForUpdate(win) {
   req.on('error', () => { /* network unavailable — ignore */ });
   req.end();
 }
+
+ipcMain.handle('open-image-file', (_event, filename) => {
+  const filePath = path.join(STORAGE_ROOT, 'images', path.basename(filename));
+  return shell.openPath(filePath);
+});
 
 app.whenReady().then(async () => {
   try {
