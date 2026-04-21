@@ -2,6 +2,12 @@
 
 All notable changes to GotchaBoard are documented here.
 
+## [1.1.2] - 2026-04-21
+
+### Fixed
+- Chrome extension now saves images from hotlink-protected sites (e.g. siteinspire.com). Images are fetched via the extension's background service worker, which bypasses CORS and sends the browser's existing cookies for the source site. Previously these saves failed with HTTP 403 or a CORS error.
+- Multi-select save now shows the actual error message on failure instead of the generic "Is the server running?" message.
+
 ## [1.1.1] - 2026-04-20
 
 ### Added

@@ -86,7 +86,7 @@ async function handleUpload(req, res) {
     const notes = req.body.notes || null;
     const page_title = req.body.page_title || req.file.originalname || null;
     const page_url = req.body.page_url || null;
-    const source_url = 'local://upload';
+    const source_url = req.body.source_url || 'local://upload';
 
     db.transaction(() => {
       db.prepare(`
@@ -239,7 +239,7 @@ router.post('/save', async (req, res) => {
 
     let filename, filepath;
     try {
-      ({ filename, filepath } = await downloadImage(source_url));
+      ({ filename, filepath } = await downloadImage(source_url, 0, { referer: page_url || undefined }));
     } catch (err) {
       return res.status(400).json({ error: `Failed to download image: ${err.message}` });
     }

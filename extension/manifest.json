@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Save to Gotcha",
-  "version": "1.0.0",
+  "version": "1.1.2",
   "description": "Save images to your local GotchaBoard",
   "homepage_url": "https://github.com/philhoyt/GotchaBoard/",
   "permissions": [
@@ -12,7 +12,8 @@
     "activeTab"
   ],
   "host_permissions": [
-    "http://localhost/*"
+    "http://localhost/*",
+    "<all_urls>"
   ],
   "background": {
     "service_worker": "background.js"

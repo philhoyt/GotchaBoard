@@ -67,6 +67,24 @@ async function checkDuplicate(url) {
   } catch (_) {}
 }
 
+// ── Image fetching ──────────────────────────────────────
+
+// Delegate image fetch + server upload to the background service worker.
+// The SW has <all_urls> host permission so CORS is bypassed and the browser's
+// cookies for the source site are included automatically.
+function saveImageViaBackground(imageUrl, { pageUrl, pageTitle, tags, serverUrl }) {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage(
+      { type: 'saveImage', imageUrl, pageUrl, pageTitle, tags, serverUrl },
+      (result) => {
+        if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
+        if (!result?.ok) return reject(new Error(result?.error || 'Background save failed'));
+        resolve();
+      }
+    );
+  });
+}
+
 // ── Picker ──────────────────────────────────────────────
 
 function toggleSelection(src, itemEl) {
@@ -198,6 +216,7 @@ async function saveSelectedImages() {
   const serverUrl = await getServerUrl();
   let saved = 0;
   let failed = 0;
+  let lastError = '';
 
   for (let i = 0; i < toSave.length; i++) {
     savingLabel.textContent = total > 1
@@ -205,19 +224,10 @@ async function saveSelectedImages() {
       : 'Saving...';
 
     try {
-      const res = await fetch(`${serverUrl}/api/images/save`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          source_url: toSave[i],
-          page_title: pageTitle || null,
-          page_url: pageUrl || null,
-          tags
-        })
-      });
-      if (res.ok) saved++;
-      else failed++;
-    } catch (_) {
+      await saveImageViaBackground(toSave[i], { pageUrl, pageTitle, tags, serverUrl });
+      saved++;
+    } catch (err) {
+      lastError = err.message || err.name || 'Unknown error';
       failed++;
     }
   }
@@ -230,9 +240,9 @@ async function saveSelectedImages() {
   if (failed === 0) {
     successLabel.textContent = saved === 1 ? 'Saved!' : `Saved ${saved} images!`;
   } else if (saved === 0) {
-    successLabel.textContent = 'Failed to save. Is the server running?';
+    successLabel.textContent = lastError ? `Failed: ${lastError}` : 'Failed to save. Is the server running?';
   } else {
-    successLabel.textContent = `Saved ${saved}, failed ${failed}.`;
+    successLabel.textContent = `Saved ${saved}, failed ${failed}${lastError ? `: ${lastError}` : ''}.`;
   }
 
   successEl.style.display = 'flex';
@@ -328,21 +338,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     try {
       const serverUrl = await getServerUrl();
-      const res = await fetch(`${serverUrl}/api/images/save`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          source_url: pendingImage.srcUrl,
-          page_title: pendingImage.pageTitle || null,
-          page_url: pendingImage.pageUrl || null,
-          tags
-        })
-      });
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || `Server error ${res.status}`);
-      }
+      await saveImageViaBackground(pendingImage.srcUrl, {
+        pageUrl: pendingImage.pageUrl,
+        pageTitle: pendingImage.pageTitle,
+        tags,
+        serverUrl
+      });
 
       showSuccess();
       setTimeout(() => window.close(), 1200);

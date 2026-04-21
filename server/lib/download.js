@@ -10,6 +10,8 @@ const MAX_SIZE = 50 * 1024 * 1024; // 50MB
 const TIMEOUT_MS = 15000;
 const MAX_REDIRECTS = 3;
 
+const DEFAULT_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+
 function extFromUrl(urlStr) {
   try {
     const u = new URL(urlStr);
@@ -21,7 +23,7 @@ function extFromUrl(urlStr) {
   return '.jpg';
 }
 
-async function downloadImage(sourceUrl, redirectCount = 0) {
+async function downloadImage(sourceUrl, redirectCount = 0, options = {}) {
   return new Promise((resolve, reject) => {
     let url;
     try {
@@ -32,7 +34,14 @@ async function downloadImage(sourceUrl, redirectCount = 0) {
 
     const transport = url.protocol === 'https:' ? https : http;
 
-    const req = transport.get(sourceUrl, { timeout: TIMEOUT_MS }, (res) => {
+    const headers = {
+      'User-Agent': options.userAgent || DEFAULT_UA,
+      'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.9',
+    };
+    if (options.referer) headers['Referer'] = options.referer;
+
+    const req = transport.get(sourceUrl, { timeout: TIMEOUT_MS, headers }, (res) => {
       // Handle redirects
       if ([301, 302, 303, 307, 308].includes(res.statusCode)) {
         if (redirectCount >= MAX_REDIRECTS) {
@@ -46,7 +55,7 @@ async function downloadImage(sourceUrl, redirectCount = 0) {
         }
         res.resume();
         const nextUrl = location.startsWith('http') ? location : new URL(location, sourceUrl).href;
-        return downloadImage(nextUrl, redirectCount + 1).then(resolve).catch(reject);
+        return downloadImage(nextUrl, redirectCount + 1, options).then(resolve).catch(reject);
       }
 
       if (res.statusCode >= 400) {
